@@ -6,12 +6,19 @@ on:
       - "v*"
 
 env:
-  DOCKER_FILES: |
-    auth/docker/auth.Dockerfile
+  DOCKER_REGISTRY: ${{ vars.DOCKER_REGISTRY }}
+  DOCKER_REPOSITORY: ${{ vars.DOCKER_REPOSITORY }}
+  VERSION: ${{ github.ref_name }}
 
 jobs:
   build-and-push:
     runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        include:
+          - service: auth
+            type: ""
 
     steps:
       - name: Checkout
@@ -20,40 +27,36 @@ jobs:
       - name: Log in to Docker Registry
         uses: docker/login-action@v3
         with:
-          registry: ${{ vars.DOCKER_REGISTRY }}
-          username: ${{ vars.DOCKER_USERNAME }}
+          registry: ${{ env.DOCKER_REGISTRY }}
+          username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
 
-      - name: Build and Push Docker Images
+      - name: Build Docker Image
         run: |
-          IFS=$'\n'  # ensure multiline parsing works
-          VERSION="${GITHUB_REF#refs/tags/}"
+          make docker-build \
+            SERVICE=${{ matrix.service }} \
+            TYPE=${{ matrix.type }} \
+            VERSION=${{ env.VERSION }} \
+            DOCKER_REGISTRY=${{ env.DOCKER_REGISTRY }} \
+            DOCKER_REPOSITORY=${{ env.DOCKER_REPOSITORY }}
 
-          for DOCKER_FILE in $DOCKER_FILES; do
-            BASENAME=$(basename "$DOCKER_FILE")      
-            NAME=${BASENAME%%.*}                        
-            CONTEXT="$(dirname "$DOCKER_FILE")" 
-            IMAGE_NAME="${DOCKER_REGISTRY}/${DOCKER_REPOSITORY}/${NAME}:${VERSION}"
-
-            echo "🚀 Building and pushing image: $IMAGE_NAME"
-            docker build -f "$DOCKER_FILE" -t "$IMAGE_NAME" "$CONTEXT"
-            docker push "$IMAGE_NAME"
-          done
-        env:
-          DOCKER_BUILDKIT: 1
-          DOCKER_REGISTRY: ${{ vars.DOCKER_REGISTRY }}
-          DOCKER_REPOSITORY: ${{ vars.DOCKER_REPOSITORY }}
-          DOCKER_FILES: ${{ env.DOCKER_FILES }}
+      - name: Push Docker Image
+        run: |
+          make docker-push \
+            SERVICE=${{ matrix.service }} \
+            TYPE=${{ matrix.type }} \
+            VERSION=${{ env.VERSION }} \
+            DOCKER_REGISTRY=${{ env.DOCKER_REGISTRY }} \
+            DOCKER_REPOSITORY=${{ env.DOCKER_REPOSITORY }}
 
       - name: Logout from Docker Registry
-        run: docker logout ${{ vars.DOCKER_REGISTRY }}
+        run: docker logout ${{ env.DOCKER_REGISTRY }}
         if: always()
 
-      - name: Notify Success
+      - name: Notify on Success
         if: success()
-        run: echo "✅ Docker images built and pushed successfully."
+        run: echo "Docker image for ${{ matrix.service }} successfully built and pushed with version ${{ env.VERSION }}."
 
-      - name: Notify Failure
+      - name: Notify on Failure
         if: failure()
-        run: echo "❌ Failed to build and push Docker images."
-        continue-on-error: true
+        run: echo "Failed to build or push Docker image for ${{ matrix.service }} with version ${{ env.VERSION }}."
