@@ -37,20 +37,29 @@ type RedisStoreConfig struct {
 	Timeout  time.Duration `validate:"omitempty,min=1"`
 }
 
+type HTTPServerConfig struct {
+	Port int `validate:"required,min=1,max=65535"`
+}
+
+type GRPCClientConfig struct {
+	Address string `validate:"required"`
+}
+
 type Config struct {
-	Env              string              `validate:"required,oneof=dev prod"`
-	Port             int                 `validate:"required,min=1,max=65535"`
-	TokenServiceAddr string              `validate:"required"`
-	DatabaseURL      string              `validate:"required"`
-	VerifyEmailURL   string              `validate:"required,url"`
-	LoginCodeStore   RedisStoreConfig    `validate:"required"`
-	EmailCodeStore   RedisStoreConfig    `validate:"required"` // Store for email verification codes
-	SessionStore     RedisStoreConfig    `validate:"required"`
-	MailWriter       KafkaWriterConfig   `validate:"required"`
-	UserEventReader  KafkaReaderConfig   `validate:"required"`
-	GoogleOAuth      OAuthProviderConfig `validate:"required"`
-	NaverOAuth       OAuthProviderConfig `validate:"required"`
-	KakaoOAuth       OAuthProviderConfig `validate:"required"`
+	Env        string           `validate:"required,oneof=dev prod"`
+	HTTPServer HTTPServerConfig `validate:"required"`
+	// TokenServiceAddr string              `validate:"required"`
+	TokenClient     GRPCClientConfig    `validate:"required"`
+	DatabaseURL     string              `validate:"required"`
+	VerifyEmailURL  string              `validate:"required,url"`
+	LoginCodeStore  RedisStoreConfig    `validate:"required"`
+	EmailCodeStore  RedisStoreConfig    `validate:"required"` // Store for email verification codes
+	SessionStore    RedisStoreConfig    `validate:"required"`
+	MailWriter      KafkaWriterConfig   `validate:"required"`
+	UserEventReader KafkaReaderConfig   `validate:"required"`
+	GoogleOAuth     OAuthProviderConfig `validate:"required"`
+	NaverOAuth      OAuthProviderConfig `validate:"required"`
+	KakaoOAuth      OAuthProviderConfig `validate:"required"`
 }
 
 // LoadConfig loads env vars from .env (if exists) and returns structured config
@@ -59,7 +68,7 @@ func LoadConfig(validator *validator.Validate) (*Config, error) {
 		_ = godotenv.Load()
 	}
 
-	port, err := strconv.Atoi(getEnv("PORT", "8080"))
+	httpPort, err := strconv.Atoi(getEnv("HTTP_PORT", "8080"))
 	if err != nil {
 		return nil, err
 	}
@@ -81,9 +90,13 @@ func LoadConfig(validator *validator.Validate) (*Config, error) {
 	}
 
 	config := &Config{
-		Env:              getEnv("ENV", "dev"),
-		Port:             port,
-		TokenServiceAddr: getEnv("TOKEN_SERVICE_ADDR", ""),
+		Env: getEnv("ENV", "dev"),
+		HTTPServer: HTTPServerConfig{
+			Port: httpPort,
+		},
+		TokenClient: GRPCClientConfig{
+			Address: getEnv("TOKEN_CLIENT_ADDR", ""),
+		},
 		DatabaseURL:      getEnv("DATABASE_URL", ""),
 		VerifyEmailURL:   getEnv("VERIFY_EMAIL_URL", ""),
 		LoginCodeStore: RedisStoreConfig{

@@ -57,7 +57,14 @@ func main() {
 		Password: cfg.EmailCodeStore.Password,
 		DB:       cfg.EmailCodeStore.DB,
 	})
-	sessionStore, err := sessionredis.NewStore(cfg.SessionStore.DB, "tcp", cfg.SessionStore.Address, "", cfg.SessionStore.Password, []byte(cfg.SessionStore.HashKey))
+	sessionStore, err := sessionredis.NewStore(
+		cfg.SessionStore.DB,
+		"tcp",
+		cfg.SessionStore.Address,
+		"",
+		cfg.SessionStore.Password,
+		[]byte(cfg.SessionStore.HashKey),
+	)
 	if err != nil {
 		logger.Fatal("failed to create session store", zap.Error(err))
 	}
@@ -67,7 +74,7 @@ func main() {
 	if err != nil {
 		logger.Fatal("failed to create database client", zap.Error(err))
 	}
-	tokenClient, _, err := tokeninfra.NewTokenClient(cfg.TokenServiceAddr)
+	tokenClient, _, err := tokeninfra.NewTokenClient(cfg.TokenClient.Address)
 	if err != nil {
 		logger.Fatal("failed to create token client", zap.Error(err))
 	}
@@ -137,7 +144,7 @@ func main() {
 	userEventHandler := kafkahandlerv1.NewUserEventHandler(userEventUsecase)
 
 	// Initialize servers
-	httpServer := httpserver.NewServer(cfg.Port, logger, localAuthHandler, oauthHandler, sessionStore)
+	httpServer := httpserver.NewServer(cfg.HTTPServer.Port, logger, localAuthHandler, oauthHandler, sessionStore)
 	kafkaServer := kafkaserver.NewKafkaServer(logger, []*kafkaserver.ReaderHandler{
 		{
 			Reader:  userEventReader,
@@ -145,7 +152,7 @@ func main() {
 		},
 	})
 
-	manager := server.NewServerManager(
+	serverManager := server.NewServerManager(
 		[]server.Server{httpServer, kafkaServer},
 	)
 	ctx, cancel := context.WithCancel(context.Background())
@@ -159,7 +166,7 @@ func main() {
 		cancel() // Cancel the context to stop the server
 	}()
 
-	if err := manager.Run(ctx); err != nil {
+	if err := serverManager.Run(ctx); err != nil {
 		logger.Fatal("failed to start server", zap.Error(err))
 	}
 }
