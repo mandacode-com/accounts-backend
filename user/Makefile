@@ -51,7 +51,7 @@ push-app: build-app
 # ──────────────────────────────
 generate-migrate: check-migrate-name
 	atlas migrate diff $(MIGRATE_NAME) \
-		--dev-url $(MIGRATE_DEV_URL) \
+		--dev-url "docker://postgres/17" \
 		--dir "file://ent/migrate/migrations" \
 		--to "ent://ent/schema"
 

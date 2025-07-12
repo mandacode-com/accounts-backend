@@ -50,11 +50,11 @@ func LoadConfig(validator *validator.Validate) (*Config, error) {
 		_ = godotenv.Load()
 	}
 
-	httpPort, err := strconv.Atoi(getEnv("HTTP_PORT", "8080"))
+	httpPort, err := strconv.Atoi(getEnv("HTTP_PORT", ""))
 	if err != nil {
 		return nil, err
 	}
-	grpcPort, err := strconv.Atoi(getEnv("GRPC_PORT", "9090"))
+	grpcPort, err := strconv.Atoi(getEnv("GRPC_PORT", ""))
 	if err != nil {
 		return nil, err
 	}
