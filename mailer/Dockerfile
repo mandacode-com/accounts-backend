@@ -35,11 +35,4 @@ COPY --from=builder /app/server /app/server
 # Create non-root user
 USER 1001
 
-# Set environment variables
-ENV ENV=prod
-ENV HTTP_PORT=8080
-
-# Expose ports
-EXPOSE 8080
-
 ENTRYPOINT ["/app/server"]

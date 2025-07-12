@@ -22,7 +22,7 @@ RUN go mod download
 COPY . .
 
 # Build the Go binary (static)
-RUN go build -o server ./cmd/server/main.go
+RUN go build -o server ./cmd/server
 
 ############################
 # 2. Runtime Stage (scratch)
@@ -34,5 +34,12 @@ COPY --from=builder /app/server /app/server
 
 # Create non-root user
 USER 1001
+
+# Set environment variables
+ENV ENV=prod
+ENV PORT=50051
+
+# Expose ports
+EXPOSE 50051
 
 ENTRYPOINT ["/app/server"]

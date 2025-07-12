@@ -1,0 +1,22 @@
+FROM alpine:latest
+
+# Install dependencies and atlas
+RUN apk add --no-cache curl tar && \
+    curl -sSf https://atlasgo.sh | sh
+
+# Set working directory
+WORKDIR /app
+
+# Copy migration files
+COPY ent/migrate/migrations ./migrations
+
+# Set environment variable check + migration execution as entrypoint
+ENTRYPOINT ["/bin/sh", "-c", "\
+  if [ -z \"$DATABASE_URL\" ]; then \
+    echo '❌ DATABASE_URL is not set'; \
+    exit 1; \
+  fi && \
+  echo '🚀 Running migrations...' && \
+  atlas migrate apply --dir file://migrations --url \"$DATABASE_URL\" \
+"]
+

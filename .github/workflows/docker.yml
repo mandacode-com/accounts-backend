@@ -19,6 +19,24 @@ jobs:
         include:
           - service: auth
             type: ""
+          - service: auth
+            type: migration
+
+          - service: user
+            type: ""
+          - service: user
+            type: migration
+
+          - service: profile
+            type: ""
+          - service: profile
+            type: migration
+
+          - service: mailer
+            type: ""
+
+          - service: token
+            type: ""
 
     steps:
       - name: Checkout
