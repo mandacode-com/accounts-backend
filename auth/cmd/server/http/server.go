@@ -20,13 +20,14 @@ type Server struct {
 	localAuthHandler *httphandlerv1.LocalAuthHandler
 	oauthHandler     *httphandlerv1.OAuthHandler
 	port             int
+	sessionName      string
 	sessionStore     sessions.Store
 }
 
 // Start implements server.Server.
 func (s *Server) Start(ctx context.Context) error {
 	s.engine.Use(gin.Recovery())
-	s.engine.Use(sessions.Sessions("session", s.sessionStore))
+	s.engine.Use(sessions.Sessions(s.sessionName, s.sessionStore))
 	s.engine.Use(httpmiddleware.ErrorHandler(s.logger))
 
 	localAuthGroup := s.engine.Group("/v1/auth/local")
@@ -54,7 +55,14 @@ func (s *Server) Stop(ctx context.Context) error {
 	return nil
 }
 
-func NewServer(port int, logger *zap.Logger, localAuthHandler *httphandlerv1.LocalAuthHandler, oauthHandler *httphandlerv1.OAuthHandler, sessionStore sessions.Store) server.Server {
+func NewServer(
+	port int,
+	logger *zap.Logger,
+	localAuthHandler *httphandlerv1.LocalAuthHandler,
+	oauthHandler *httphandlerv1.OAuthHandler,
+	sessionName string,
+	sessionStore sessions.Store,
+) server.Server {
 	engine := gin.Default()
 	return &Server{
 		http:             &http.Server{Addr: ":" + strconv.Itoa(port), Handler: engine},
@@ -63,6 +71,7 @@ func NewServer(port int, logger *zap.Logger, localAuthHandler *httphandlerv1.Loc
 		port:             port,
 		localAuthHandler: localAuthHandler,
 		oauthHandler:     oauthHandler,
+		sessionName:      sessionName,
 		sessionStore:     sessionStore,
 	}
 }

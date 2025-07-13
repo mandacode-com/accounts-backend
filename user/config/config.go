@@ -16,12 +16,6 @@ type KafkaWriterConfig struct {
 	Topic   string `validate:"required"`
 }
 
-type KafkaReaderConfig struct {
-	Address string `validate:"required"`
-	Topic   string `validate:"required"`
-	GroupID string `validate:"required"`
-}
-
 type HTTPServerConfig struct {
 	Port int `validate:"required,min=1,max=65535"`
 }
@@ -40,7 +34,6 @@ type Config struct {
 	DatabaseURL     string            `validate:"required"`
 	HTTPServer      HTTPServerConfig  `validate:"required"`
 	GRPCServer      GRPCServerConfig  `validate:"required"`
-	MailWriter      KafkaWriterConfig `validate:"required"`
 	UserEventWriter KafkaWriterConfig `validate:"required"`
 }
 
@@ -62,10 +55,6 @@ func LoadConfig(validator *validator.Validate) (*Config, error) {
 	config := &Config{
 		Env:              getEnv("ENV", "dev"),
 		DatabaseURL:      getEnv("DATABASE_URL", ""),
-		MailWriter: KafkaWriterConfig{
-			Address: getEnv("MAIL_WRITER_ADDRESS", ""),
-			Topic:   getEnv("MAIL_WRITER_TOPIC", ""),
-		},
 		UserEventWriter: KafkaWriterConfig{
 			Address: getEnv("USER_EVENT_WRITER_ADDRESS", ""),
 			Topic:   getEnv("USER_EVENT_WRITER_TOPIC", ""),

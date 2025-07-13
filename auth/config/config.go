@@ -37,6 +37,14 @@ type RedisStoreConfig struct {
 	Timeout  time.Duration `validate:"omitempty,min=1"`
 }
 
+type SessionStoreConfig struct {
+	Address     string `validate:"required"`
+	Password    string `validate:"omitempty"`
+	DB          int    `validate:"min=0,max=15"`
+	SessionName string `validate:"required"`
+	HashKey     string `validate:"required"`
+}
+
 type HTTPServerConfig struct {
 	Port int `validate:"required,min=1,max=65535"`
 }
@@ -46,15 +54,14 @@ type GRPCClientConfig struct {
 }
 
 type Config struct {
-	Env        string           `validate:"required,oneof=dev prod"`
-	HTTPServer HTTPServerConfig `validate:"required"`
-	// TokenServiceAddr string              `validate:"required"`
+	Env             string              `validate:"required,oneof=dev prod"`
+	HTTPServer      HTTPServerConfig    `validate:"required"`
 	TokenClient     GRPCClientConfig    `validate:"required"`
 	DatabaseURL     string              `validate:"required"`
 	VerifyEmailURL  string              `validate:"required,url"`
 	LoginCodeStore  RedisStoreConfig    `validate:"required"`
 	EmailCodeStore  RedisStoreConfig    `validate:"required"` // Store for email verification codes
-	SessionStore    RedisStoreConfig    `validate:"required"`
+	SessionStore    SessionStoreConfig  `validate:"required"`
 	MailWriter      KafkaWriterConfig   `validate:"required"`
 	UserEventReader KafkaReaderConfig   `validate:"required"`
 	GoogleOAuth     OAuthProviderConfig `validate:"required"`
@@ -97,8 +104,8 @@ func LoadConfig(validator *validator.Validate) (*Config, error) {
 		TokenClient: GRPCClientConfig{
 			Address: getEnv("TOKEN_CLIENT_ADDR", ""),
 		},
-		DatabaseURL:      getEnv("DATABASE_URL", ""),
-		VerifyEmailURL:   getEnv("VERIFY_EMAIL_URL", ""),
+		DatabaseURL:    getEnv("DATABASE_URL", ""),
+		VerifyEmailURL: getEnv("VERIFY_EMAIL_URL", ""),
 		LoginCodeStore: RedisStoreConfig{
 			Address:  getEnv("LOGIN_CODE_STORE_ADDRESS", ""),
 			Password: getEnv("LOGIN_CODE_STORE_PASSWORD", ""),
@@ -115,12 +122,12 @@ func LoadConfig(validator *validator.Validate) (*Config, error) {
 			HashKey:  getEnv("EMAIL_CODE_STORE_HASH_KEY", "default_email_code_hash_key"),
 			Timeout:  emailCodeTTL,
 		},
-		SessionStore: RedisStoreConfig{
-			Address:  getEnv("SESSION_STORE_ADDRESS", ""),
-			Password: getEnv("SESSION_STORE_PASSWORD", ""),
-			DB:       sessionStoreDB,
-			Prefix:   getEnv("SESSION_STORE_PREFIX", "session:"),
-			HashKey:  getEnv("SESSION_STORE_HASH_KEY", "default_session_hash_key"),
+		SessionStore: SessionStoreConfig{
+			Address:     getEnv("SESSION_STORE_ADDRESS", ""),
+			Password:    getEnv("SESSION_STORE_PASSWORD", ""),
+			DB:          sessionStoreDB,
+			SessionName: getEnv("SESSION_STORE_NAME", "session"),
+			HashKey:     getEnv("SESSION_STORE_HASH_KEY", "default_session_hash_key"),
 		},
 		MailWriter: KafkaWriterConfig{
 			Address: getEnv("MAIL_WRITER_ADDRESS", ""),
