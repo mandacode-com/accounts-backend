@@ -51,19 +51,21 @@ jobs:
 
       - name: Build Docker Image
         run: |
+          VERSION_CLEAN=$(echo ${{ env.VERSION }} | sed 's/^v//')
           make docker-build \
             SERVICE=${{ matrix.service }} \
             TYPE=${{ matrix.type }} \
-            VERSION=${{ env.VERSION }} \
+            VERSION=${VERSION_CLEAN} \
             DOCKER_REGISTRY=${{ env.DOCKER_REGISTRY }} \
             DOCKER_REPOSITORY=${{ env.DOCKER_REPOSITORY }}
 
       - name: Push Docker Image
         run: |
+          VERSION_CLEAN=$(echo ${{ env.VERSION }} | sed 's/^v//')
           make docker-push \
             SERVICE=${{ matrix.service }} \
             TYPE=${{ matrix.type }} \
-            VERSION=${{ env.VERSION }} \
+            VERSION=${VERSION_CLEAN} \
             DOCKER_REGISTRY=${{ env.DOCKER_REGISTRY }} \
             DOCKER_REPOSITORY=${{ env.DOCKER_REPOSITORY }}
 
