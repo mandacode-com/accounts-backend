@@ -49,6 +49,9 @@ type SessionStoreConfig struct {
 type HTTPServerConfig struct {
 	Port int `validate:"required,min=1,max=65535"`
 }
+type GRPCServerConfig struct {
+	Port int `validate:"required,min=1,max=65535"`
+}
 
 type GRPCClientConfig struct {
 	Address string `validate:"required"`
@@ -57,6 +60,7 @@ type GRPCClientConfig struct {
 type Config struct {
 	Env             string              `validate:"required,oneof=dev prod"`
 	HTTPServer      HTTPServerConfig    `validate:"required"`
+	GRPCServer      GRPCServerConfig    `validate:"required"`
 	TokenClient     GRPCClientConfig    `validate:"required"`
 	DatabaseURL     string              `validate:"required"`
 	VerifyEmailURL  string              `validate:"required,url"`
@@ -80,6 +84,7 @@ func LoadConfig(validator *validator.Validate) (*Config, error) {
 	if err != nil {
 		return nil, err
 	}
+	grpcPort, err := strconv.Atoi(getEnv("GRPC_PORT", "50051"))
 	sessionStoreDB, err := strconv.Atoi(getEnv("SESSION_STORE_DB", "0"))
 	if err != nil {
 		return nil, err
@@ -101,6 +106,9 @@ func LoadConfig(validator *validator.Validate) (*Config, error) {
 		Env: getEnv("ENV", "dev"),
 		HTTPServer: HTTPServerConfig{
 			Port: httpPort,
+		},
+		GRPCServer: GRPCServerConfig{
+			Port: grpcPort,
 		},
 		TokenClient: GRPCClientConfig{
 			Address: getEnv("TOKEN_CLIENT_ADDR", ""),

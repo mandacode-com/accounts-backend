@@ -1,4 +1,4 @@
-package localauth
+package login
 
 import (
 	"context"
@@ -10,16 +10,16 @@ import (
 	coderepo "mandacode.com/accounts/auth/internal/repository/code"
 	dbrepo "mandacode.com/accounts/auth/internal/repository/database"
 	tokenrepo "mandacode.com/accounts/auth/internal/repository/token"
-	localauthdto "mandacode.com/accounts/auth/internal/usecase/localauth/dto"
+	logindto "mandacode.com/accounts/auth/internal/usecase/login/dto"
 )
 
-type LoginUsecase struct {
+type LocalLoginUsecase struct {
 	authAccount      *dbrepo.AuthAccountRepository
 	token            *tokenrepo.TokenRepository
 	loginCodeManager *coderepo.CodeManager
 }
 
-func (l *LoginUsecase) checkUserVerified(ctx context.Context, input localauthdto.LoginInput) (uuid.UUID, error) {
+func (l *LocalLoginUsecase) checkUserVerified(ctx context.Context, input logindto.LocalLoginInput) (uuid.UUID, error) {
 	verified, userID, err := l.authAccount.ComparePassword(ctx, input.Email, input.Password)
 	if err != nil {
 		return uuid.Nil, err
@@ -39,8 +39,8 @@ func (l *LoginUsecase) checkUserVerified(ctx context.Context, input localauthdto
 	return userID, nil
 }
 
-// IssueLoginCode implements localauthdomain.LoginUsecase.
-func (l *LoginUsecase) IssueLoginCode(ctx context.Context, input localauthdto.LoginInput) (code string, userID uuid.UUID, err error) {
+// IssueLoginCode implements localauthdomain.LocalLoginUsecase.
+func (l *LocalLoginUsecase) IssueLoginCode(ctx context.Context, input logindto.LocalLoginInput) (code string, userID uuid.UUID, err error) {
 	userID, err = l.checkUserVerified(ctx, input)
 	if err != nil {
 		return "", uuid.Nil, err
@@ -55,8 +55,8 @@ func (l *LoginUsecase) IssueLoginCode(ctx context.Context, input localauthdto.Lo
 	return code, userID, nil
 }
 
-// VerifyLoginCode implements localauthdomain.LoginUsecase.
-func (l *LoginUsecase) VerifyLoginCode(ctx context.Context, userID uuid.UUID, code string) (accessToken string, refreshToken string, err error) {
+// VerifyLoginCode implements localauthdomain.LocalLoginUsecase.
+func (l *LocalLoginUsecase) VerifyLoginCode(ctx context.Context, userID uuid.UUID, code string) (accessToken string, refreshToken string, err error) {
 	valid, err := l.loginCodeManager.ValidateCode(ctx, userID, code)
 	if err != nil {
 		return "", "", errors.Upgrade(err, "Failed to validate login code", errcode.ErrInternalFailure)
@@ -69,8 +69,8 @@ func (l *LoginUsecase) VerifyLoginCode(ctx context.Context, userID uuid.UUID, co
 	return l.issueToken(ctx, userID)
 }
 
-// Login implements localauthdomain.LoginUsecase.
-func (l *LoginUsecase) Login(ctx context.Context, input localauthdto.LoginInput) (accessToken string, refreshToken string, err error) {
+// Login implements localauthdomain.LocalLoginUsecase.
+func (l *LocalLoginUsecase) Login(ctx context.Context, input logindto.LocalLoginInput) (accessToken string, refreshToken string, err error) {
 	userID, err := l.checkUserVerified(ctx, input)
 	if err != nil {
 		return "", "", err
@@ -81,7 +81,7 @@ func (l *LoginUsecase) Login(ctx context.Context, input localauthdto.LoginInput)
 }
 
 // issueToken issues a new access token and refresh token for the user.
-func (l *LoginUsecase) issueToken(ctx context.Context, userID uuid.UUID) (accessToken string, refreshToken string, err error) {
+func (l *LocalLoginUsecase) issueToken(ctx context.Context, userID uuid.UUID) (accessToken string, refreshToken string, err error) {
 	accessToken, _, err = l.token.GenerateAccessToken(ctx, userID)
 	if err != nil {
 		return "", "", errors.Upgrade(err, "Failed to generate token", errcode.ErrInternalFailure)
@@ -93,12 +93,12 @@ func (l *LoginUsecase) issueToken(ctx context.Context, userID uuid.UUID) (access
 	return accessToken, refreshToken, nil
 }
 
-func NewLoginUsecase(
+func NewLocalLoginUsecase(
 	authAccount *dbrepo.AuthAccountRepository,
 	token *tokenrepo.TokenRepository,
 	loginCodeManager *coderepo.CodeManager,
-) *LoginUsecase {
-	return &LoginUsecase{
+) *LocalLoginUsecase {
+	return &LocalLoginUsecase{
 		authAccount:      authAccount,
 		token:            token,
 		loginCodeManager: loginCodeManager,

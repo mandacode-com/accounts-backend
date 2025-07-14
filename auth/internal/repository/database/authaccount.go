@@ -64,6 +64,21 @@ func (a *AuthAccountRepository) CreateOAuthAuthAccount(ctx context.Context, acco
 	return dbmodels.NewSecureOAuthAuthAccount(authAccount), nil
 }
 
+// GetAuthAccountByID retrieves an authentication account by ID.
+func (a *AuthAccountRepository) GetAuthAccountByID(ctx context.Context, id uuid.UUID) (*dbmodels.SecureAuthAccount, error) {
+	authAccount, err := a.client.AuthAccount.Query().
+		Where(authaccount.ID(id)).
+		Only(ctx)
+	if err != nil {
+		if ent.IsNotFound(err) {
+			return nil, errors.New("AuthAccount not found", "AuthAccount Not Found", errcode.ErrNotFound)
+		}
+		return nil, errors.New(err.Error(), "Failed to find AuthAccount by ID", errcode.ErrInternalFailure)
+	}
+
+	return dbmodels.NewSecureAuthAccount(authAccount), nil
+}
+
 // GetAuthAccountsByUserID retrieves an authentication account by user ID.
 func (a *AuthAccountRepository) GetAuthAccountsByUserID(ctx context.Context, userID uuid.UUID) ([]*dbmodels.SecureAuthAccount, error) {
 	authAccounts, err := a.client.AuthAccount.Query().
@@ -313,6 +328,21 @@ func (a *AuthAccountRepository) SetIsVerifiedByUserIDAndProvider(ctx context.Con
 	}
 
 	return dbmodels.NewSecureAuthAccount(authAccountUpdated), nil
+}
+
+// UpdateEmailByID updates the email of an authentication account by user ID.
+func (a *AuthAccountRepository) UpdateEmailByID(ctx context.Context, id uuid.UUID, newEmail string) (*dbmodels.SecureAuthAccount, error) {
+	authAccount, err := a.client.AuthAccount.UpdateOneID(id).
+		SetEmail(newEmail).
+		Save(ctx)
+	if err != nil {
+		if ent.IsNotFound(err) {
+			return nil, errors.New("AuthAccount not found", "AuthAccount Not Found", errcode.ErrNotFound)
+		}
+		return nil, errors.New(err.Error(), "Failed to update AuthAccount email", errcode.ErrInternalFailure)
+	}
+
+	return dbmodels.NewSecureAuthAccount(authAccount), nil
 }
 
 // NewAuthAccountRepository creates a new instance of authAccountRepository.

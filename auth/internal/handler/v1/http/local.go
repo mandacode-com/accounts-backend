@@ -13,38 +13,32 @@ import (
 	"go.uber.org/zap"
 
 	handlerv1dto "mandacode.com/accounts/auth/internal/handler/v1/http/dto"
-	"mandacode.com/accounts/auth/internal/usecase/localauth"
-	localauthdto "mandacode.com/accounts/auth/internal/usecase/localauth/dto"
+	"mandacode.com/accounts/auth/internal/usecase/login"
+	logindto "mandacode.com/accounts/auth/internal/usecase/login/dto"
 )
 
 type LocalAuthHandler struct {
-	localLogin  *localauth.LoginUsecase
-	localSignup *localauth.SignupUsecase
-	logger      *zap.Logger
-	validator   *validator.Validate
+	localLogin *login.LocalLoginUsecase
+	logger     *zap.Logger
+	validator  *validator.Validate
 }
 
 func NewLocalAuthHandler(
-	localLogin *localauth.LoginUsecase,
-	localSignup *localauth.SignupUsecase,
+	localLogin *login.LocalLoginUsecase,
 	logger *zap.Logger,
 	validator *validator.Validate,
 ) (*LocalAuthHandler, error) {
 	if localLogin == nil {
 		return nil, stdErrors.New("localLogin cannot be nil")
 	}
-	if localSignup == nil {
-		return nil, stdErrors.New("localSignup cannot be nil")
-	}
 	if validator == nil {
 		return nil, stdErrors.New("validator cannot be nil")
 	}
 
 	return &LocalAuthHandler{
-		localLogin:  localLogin,
-		localSignup: localSignup,
-		logger:      logger,
-		validator:   validator,
+		localLogin: localLogin,
+		logger:     logger,
+		validator:  validator,
 	}, nil
 }
 
@@ -63,7 +57,6 @@ func (h *LocalAuthHandler) ValidateRequest(req interface{}) error {
 func (h *LocalAuthHandler) RegisterRoutes(rg *gin.RouterGroup) {
 	rg.POST("/login", h.Login)
 	rg.POST("/login/code", h.LoginCode)
-	rg.POST("/signup", h.Signup)
 	rg.GET("/verify/:userID", h.VerifyCode)
 }
 
@@ -86,7 +79,7 @@ func (h *LocalAuthHandler) Login(c *gin.Context) {
 		return
 	}
 
-	input := localauthdto.LoginInput{
+	input := logindto.LocalLoginInput{
 		Email:    req.Email,
 		Password: req.Password,
 	}
@@ -138,7 +131,7 @@ func (h *LocalAuthHandler) LoginCode(c *gin.Context) {
 		return
 	}
 
-	input := localauthdto.LoginInput{
+	input := logindto.LocalLoginInput{
 		Email:    req.Email,
 		Password: req.Password,
 	}
@@ -154,33 +147,6 @@ func (h *LocalAuthHandler) LoginCode(c *gin.Context) {
 		UserID: userID.String(),
 	}
 	c.JSON(http.StatusOK, response)
-}
-
-// Signup handles local user signup
-func (h *LocalAuthHandler) Signup(c *gin.Context) {
-	var req handlerv1dto.LocalSignupRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.Error(err)
-		return
-	}
-
-	if err := h.ValidateRequest(&req); err != nil {
-		c.Error(err)
-		return
-	}
-
-	input := localauthdto.SignupInput{
-		Email:    req.Email,
-		Password: req.Password,
-	}
-
-	userID, err := h.localSignup.Signup(c.Request.Context(), input)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-
-	c.JSON(http.StatusCreated, gin.H{"user_id": userID.String()})
 }
 
 // VerifyCode handles verification of the login code

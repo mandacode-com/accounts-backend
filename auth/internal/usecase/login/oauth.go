@@ -1,4 +1,4 @@
-package oauthauth
+package login
 
 import (
 	"context"
@@ -15,30 +15,19 @@ import (
 	coderepo "mandacode.com/accounts/auth/internal/repository/code"
 	dbrepo "mandacode.com/accounts/auth/internal/repository/database"
 	tokenrepo "mandacode.com/accounts/auth/internal/repository/token"
-	userrepo "mandacode.com/accounts/auth/internal/repository/user"
-	oauthdto "mandacode.com/accounts/auth/internal/usecase/oauthauth/dto"
+	logindto "mandacode.com/accounts/auth/internal/usecase/login/dto"
 )
 
-type LoginUsecase struct {
+type OAuthLoginUsecase struct {
 	authAccount      *dbrepo.AuthAccountRepository
-	userService      *userrepo.UserServiceRepository
 	token            *tokenrepo.TokenRepository
 	loginCodeManager *coderepo.CodeManager
 	oauthApiMap      map[authaccount.Provider]oauthapi.OAuthAPI
 }
 
 // createOAuth creates a new OAuth account in the database.
-func (l *LoginUsecase) createOAuth(ctx context.Context, provider authaccount.Provider, userInfo *oauthmodels.UserInfo) (*dbmodels.SecureOAuthAuthAccount, error) {
+func (l *OAuthLoginUsecase) createOAuth(ctx context.Context, provider authaccount.Provider, userInfo *oauthmodels.UserInfo) (*dbmodels.SecureOAuthAuthAccount, error) {
 	userID := uuid.New()
-	initUser, err := l.userService.InitUser(ctx, userID)
-	if err != nil {
-		return nil, errors.Upgrade(err, "Failed to initialize user", errcode.ErrInternalFailure)
-	}
-	if initUser.UserId != userID.String() {
-		l.userService.DeleteUser(ctx, userID)
-		return nil, errors.New("user initialization failed", "User Initialization Error", errcode.ErrInternalFailure)
-	}
-
 	account, err := l.authAccount.CreateOAuthAuthAccount(
 		ctx,
 		&dbmodels.CreateOAuthAuthAccountInput{
@@ -56,7 +45,7 @@ func (l *LoginUsecase) createOAuth(ctx context.Context, provider authaccount.Pro
 }
 
 // getAccessToken retrieves the access token from the OAuth API.
-func (l *LoginUsecase) getAccessToken(ctx context.Context, provider authaccount.Provider, code string) (string, error) {
+func (l *OAuthLoginUsecase) getAccessToken(ctx context.Context, provider authaccount.Provider, code string) (string, error) {
 	api, ok := l.oauthApiMap[provider]
 	if !ok {
 		return "", errors.New(fmt.Sprintf("unsupported provider: %s", provider), "UnsupportedProvider", errcode.ErrInvalidInput)
@@ -68,7 +57,7 @@ func (l *LoginUsecase) getAccessToken(ctx context.Context, provider authaccount.
 	return accessToken, nil
 }
 
-func (l *LoginUsecase) getOrCreateVerifiedUser(ctx context.Context, input oauthdto.LoginInput) (uuid.UUID, error) {
+func (l *OAuthLoginUsecase) getOrCreateVerifiedUser(ctx context.Context, input logindto.OAuthLoginInput) (uuid.UUID, error) {
 	var oauthAccessToken string
 	if input.AccessToken == "" && input.Code != "" {
 		var err error
@@ -116,8 +105,8 @@ func (l *LoginUsecase) getOrCreateVerifiedUser(ctx context.Context, input oauthd
 	return userID, nil
 }
 
-// GetLoginURL implements oauthdomain.LoginUsecase.
-func (l *LoginUsecase) GetLoginURL(ctx context.Context, provider string) (loginURL string, err error) {
+// GetLoginURL implements oauthdomain.OAuthLoginUsecase.
+func (l *OAuthLoginUsecase) GetLoginURL(ctx context.Context, provider string) (loginURL string, err error) {
 	api, ok := l.oauthApiMap[authaccount.Provider(provider)]
 	if !ok {
 		return "", errors.New("unsupported provider: "+provider, "Unsupported Provider", errcode.ErrInvalidInput)
@@ -126,8 +115,8 @@ func (l *LoginUsecase) GetLoginURL(ctx context.Context, provider string) (loginU
 	return loginURL, nil
 }
 
-// IssueLoginCode implements oauthdomain.LoginUsecase.
-func (l *LoginUsecase) IssueLoginCode(ctx context.Context, input oauthdto.LoginInput) (code string, userID uuid.UUID, err error) {
+// IssueLoginCode implements oauthdomain.OAuthLoginUsecase.
+func (l *OAuthLoginUsecase) IssueLoginCode(ctx context.Context, input logindto.OAuthLoginInput) (code string, userID uuid.UUID, err error) {
 	// Get or create verified user
 	userID, err = l.getOrCreateVerifiedUser(ctx, input)
 	if err != nil {
@@ -143,8 +132,8 @@ func (l *LoginUsecase) IssueLoginCode(ctx context.Context, input oauthdto.LoginI
 	return code, userID, nil
 }
 
-// Login implements oauthdomain.LoginUsecase.
-func (l *LoginUsecase) Login(ctx context.Context, input oauthdto.LoginInput) (accessToken string, refreshToken string, err error) {
+// Login implements oauthdomain.OAuthLoginUsecase.
+func (l *OAuthLoginUsecase) Login(ctx context.Context, input logindto.OAuthLoginInput) (accessToken string, refreshToken string, err error) {
 	// Get or create verified user
 	userID, err := l.getOrCreateVerifiedUser(ctx, input)
 	if err != nil {
@@ -155,8 +144,8 @@ func (l *LoginUsecase) Login(ctx context.Context, input oauthdto.LoginInput) (ac
 	return l.issueToken(ctx, userID)
 }
 
-// VerifyLoginCode implements oauthdomain.LoginUsecase.
-func (l *LoginUsecase) VerifyLoginCode(ctx context.Context, userID uuid.UUID, code string) (accessToken string, refreshToken string, err error) {
+// VerifyLoginCode implements oauthdomain.OAuthLoginUsecase.
+func (l *OAuthLoginUsecase) VerifyLoginCode(ctx context.Context, userID uuid.UUID, code string) (accessToken string, refreshToken string, err error) {
 	// Validate code
 	valid, err := l.loginCodeManager.ValidateCode(ctx, userID, code)
 	if err != nil {
@@ -171,7 +160,7 @@ func (l *LoginUsecase) VerifyLoginCode(ctx context.Context, userID uuid.UUID, co
 }
 
 // issueToken generates access and refresh tokens for the user.
-func (l *LoginUsecase) issueToken(ctx context.Context, userID uuid.UUID) (accessToken string, refreshToken string, err error) {
+func (l *OAuthLoginUsecase) issueToken(ctx context.Context, userID uuid.UUID) (accessToken string, refreshToken string, err error) {
 	// Generate access token
 	accessToken, _, err = l.token.GenerateAccessToken(ctx, userID)
 	if err != nil {
@@ -187,14 +176,14 @@ func (l *LoginUsecase) issueToken(ctx context.Context, userID uuid.UUID) (access
 	return accessToken, refreshToken, nil
 }
 
-// NewLoginUsecase creates a new instance of LoginUsecase.
-func NewLoginUsecase(
+// NewOAuthLoginUsecase creates a new instance of LoginUsecase.
+func NewOAuthLoginUsecase(
 	authAccount *dbrepo.AuthAccountRepository,
 	token *tokenrepo.TokenRepository,
 	loginCodeManager *coderepo.CodeManager,
 	oauthApiMap map[authaccount.Provider]oauthapi.OAuthAPI,
-) *LoginUsecase {
-	return &LoginUsecase{
+) *OAuthLoginUsecase {
+	return &OAuthLoginUsecase{
 		authAccount:      authAccount,
 		token:            token,
 		loginCodeManager: loginCodeManager,
