@@ -4,6 +4,7 @@ import (
 	"errors"
 	"os"
 	"strconv"
+	"strings"
 
 	"github.com/go-playground/validator/v10"
 	"github.com/joho/godotenv"
@@ -18,15 +19,15 @@ type MailConfig struct {
 }
 
 type KafkaConfig struct {
-	Address string `validate:"required"`
-	Topic   string `validate:"required"`
-	GroupID string `validate:"required"`
+	Brokers []string `validate:"required,dive,required"`
+	Topic   string   `validate:"required"`
+	GroupID string   `validate:"required"`
 }
 
 type Config struct {
-	Env   string      `validate:"required,oneof=dev prod"`
-	Mail  MailConfig  `validate:"required"`
-	Kafka KafkaConfig `validate:"required"`
+	Env       string      `validate:"required,oneof=dev prod"`
+	SMTP      MailConfig  `validate:"required"`
+	KafkaMail KafkaConfig `validate:"required"`
 }
 
 // LoadConfig loads env vars from .env (if exists) and returns structured config
@@ -35,29 +36,29 @@ func LoadConfig(v *validator.Validate) (*Config, error) {
 		_ = godotenv.Load()
 	}
 
-	mailPort, err := strconv.Atoi(getEnv("MAIL_PORT", "587"))
+	mailPort, err := strconv.Atoi(getEnv("SMTP_PORT", "587"))
 	if err != nil {
 		return nil, err
 	}
 
 	mailConfig := MailConfig{
-		Host:     getEnv("MAIL_HOST", ""),
+		Host:     getEnv("SMTP_HOST", ""),
 		Port:     mailPort,
-		Username: getEnv("MAIL_USER", ""),
-		Password: getEnv("MAIL_PASS", ""),
-		Sender:   getEnv("MAIL_SENDER", ""),
+		Username: getEnv("SMTP_USER", ""),
+		Password: getEnv("SMTP_PASS", ""),
+		Sender:   getEnv("SMTP_SENDER", ""),
 	}
 
 	kafkaConfig := KafkaConfig{
-		Address: getEnv("KAFKA_ADDRESS", ""),
-		Topic:   getEnv("KAFKA_TOPIC", ""),
-		GroupID: getEnv("KAFKA_GROUP_ID", ""),
+		Brokers: strings.Split(getEnv("KAFKA_MAIL_BROKERS", ""), ","),
+		Topic:   getEnv("KAFKA_MAIL_TOPIC", ""),
+		GroupID: getEnv("KAFKA_MAIL_GROUP_ID", ""),
 	}
 
 	config := &Config{
-		Env:  getEnv("ENV", "dev"),
-		Mail: mailConfig,
-		Kafka: kafkaConfig,
+		Env:       getEnv("ENV", "dev"),
+		SMTP:      mailConfig,
+		KafkaMail: kafkaConfig,
 	}
 
 	if err := v.Struct(config); err != nil {

@@ -70,6 +70,17 @@ func (k *kafkaServer) runReader(ctx context.Context, rh *ReaderHandler) {
 }
 
 func NewKafkaServer(logger *zap.Logger, readerHandlers []*ReaderHandler) server.Server {
+	for _, rh := range readerHandlers {
+		reader := rh.Reader
+		dialer := reader.Config().Dialer
+
+		for _, broker := range reader.Config().Brokers {
+			if _, err := dialer.DialContext(context.Background(), "tcp", broker); err != nil {
+				logger.Fatal("Failed to connect to Kafka broker", zap.Error(err), zap.String("broker", broker))
+			}
+		}
+		logger.Info("Connected to Kafka broker", zap.Strings("brokers", reader.Config().Brokers))
+	}
 	return &kafkaServer{
 		readerHandlers: readerHandlers,
 		logger:         logger,

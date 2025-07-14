@@ -41,7 +41,7 @@ func main() {
 		logger.Fatal("failed to create database client", zap.Error(err))
 	}
 	userEventWriter := &kafka.Writer{
-		Addr:                   kafka.TCP(cfg.UserEventWriter.Address),
+		Addr:                   kafka.TCP(cfg.UserEventWriter.Address...),
 		Topic:                  cfg.UserEventWriter.Topic,
 		Balancer:               &kafka.Hash{},
 		AllowAutoTopicCreation: true,
