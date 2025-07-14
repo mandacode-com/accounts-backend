@@ -81,7 +81,7 @@ func main() {
 
 	// Initialize mailer
 	mailWriter := &kafka.Writer{
-		Addr:                   kafka.TCP(cfg.MailWriter.Address),
+		Addr:                   kafka.TCP(cfg.MailWriter.Address...),
 		Topic:                  cfg.MailWriter.Topic,
 		Balancer:               &kafka.Hash{},
 		AllowAutoTopicCreation: true,
@@ -89,7 +89,7 @@ func main() {
 	mailer := mailer.NewMailer(mailWriter)
 
 	userEventReader := kafka.NewReader(kafka.ReaderConfig{
-		Brokers: []string{cfg.UserEventReader.Address},
+		Brokers: cfg.UserEventReader.Brokers,
 		Topic:   cfg.UserEventReader.Topic,
 		GroupID: cfg.UserEventReader.GroupID,
 	})

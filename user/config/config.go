@@ -3,6 +3,7 @@ package config
 import (
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/go-playground/validator/v10"
@@ -12,8 +13,8 @@ import (
 )
 
 type KafkaWriterConfig struct {
-	Address string `validate:"required"`
-	Topic   string `validate:"required"`
+	Address []string `validate:"required"`
+	Topic   string   `validate:"required"`
 }
 
 type HTTPServerConfig struct {
@@ -53,10 +54,10 @@ func LoadConfig(validator *validator.Validate) (*Config, error) {
 	}
 
 	config := &Config{
-		Env:              getEnv("ENV", "dev"),
-		DatabaseURL:      getEnv("DATABASE_URL", ""),
+		Env:         getEnv("ENV", "dev"),
+		DatabaseURL: getEnv("DATABASE_URL", ""),
 		UserEventWriter: KafkaWriterConfig{
-			Address: getEnv("USER_EVENT_WRITER_ADDRESS", ""),
+			Address: strings.Split(getEnv("USER_EVENT_WRITER_ADDRESS", ""), ","),
 			Topic:   getEnv("USER_EVENT_WRITER_TOPIC", ""),
 		},
 		HTTPServer: HTTPServerConfig{

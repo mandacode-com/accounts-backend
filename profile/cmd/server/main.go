@@ -44,7 +44,7 @@ func main() {
 	}
 	// Initialize Kafka reader for user events
 	userEventReader := kafka.NewReader(kafka.ReaderConfig{
-		Brokers: []string{cfg.UserEventReader.Address},
+		Brokers: cfg.UserEventReader.Brokers,
 		Topic:   cfg.UserEventReader.Topic,
 		GroupID: cfg.UserEventReader.GroupID,
 	})

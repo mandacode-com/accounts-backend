@@ -3,6 +3,7 @@ package config
 import (
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/go-playground/validator/v10"
@@ -17,9 +18,10 @@ type KafkaWriterConfig struct {
 }
 
 type KafkaReaderConfig struct {
-	Address string `validate:"required"`
-	Topic   string `validate:"required"`
-	GroupID string `validate:"required"`
+	// Address string `validate:"required"`
+	Brokers []string `validate:"required"`
+	Topic   string   `validate:"required"`
+	GroupID string   `validate:"required"`
 }
 
 type RedisStoreConfig struct {
@@ -74,7 +76,7 @@ func LoadConfig(validator *validator.Validate) (*Config, error) {
 		},
 		DatabaseURL: getEnv("DATABASE_URL", ""),
 		UserEventReader: KafkaReaderConfig{
-			Address: getEnv("USER_EVENT_READER_ADDRESS", ""),
+			Brokers: strings.Split(getEnv("USER_EVENT_READER_BROKERS", ""), ","),
 			Topic:   getEnv("USER_EVENT_READER_TOPIC", "user_event"),
 			GroupID: getEnv("USER_EVENT_READER_GROUP_ID", "user_event_group"),
 		},

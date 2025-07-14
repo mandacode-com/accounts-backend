@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/go-playground/validator/v10"
 	"github.com/mandacode-com/golib/server"
@@ -32,16 +33,20 @@ func main() {
 	}
 
 	// Initialize MailApp
-	mailUsecase, err := mail.NewMailApp(cfg.Mail.Host, cfg.Mail.Port, cfg.Mail.Username, cfg.Mail.Password, cfg.Mail.Sender, logger)
+	mailUsecase, err := mail.NewMailApp(cfg.SMTP.Host, cfg.SMTP.Port, cfg.SMTP.Username, cfg.SMTP.Password, cfg.SMTP.Sender, logger)
 	if err != nil {
 		logger.Fatal("failed to create MailApp", zap.Error(err))
 	}
 
+	dialer := &kafka.Dialer{
+		Timeout: 10 * time.Second, // 10 seconds
+	}
 	// Create Kafka mailReader (consumer)
 	mailReader := kafka.NewReader(kafka.ReaderConfig{
-		Brokers: []string{cfg.Kafka.Address},
-		Topic:   cfg.Kafka.Topic,
-		GroupID: cfg.Kafka.GroupID,
+		Brokers: cfg.KafkaMail.Brokers,
+		Topic:   cfg.KafkaMail.Topic,
+		GroupID: cfg.KafkaMail.GroupID,
+		Dialer:  dialer,
 	})
 	defer mailReader.Close()
 
