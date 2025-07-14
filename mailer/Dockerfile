@@ -31,8 +31,10 @@ FROM scratch AS prod
 
 # Copy built binary only
 COPY --from=builder /app/server /app/server
+# Copy template files
+COPY --from=builder /app/template /app/template
 
-# Create non-root user
+WORKDIR /app
 USER 1001
 
 ENTRYPOINT ["/app/server"]

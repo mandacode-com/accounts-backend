@@ -55,7 +55,7 @@ func (m *MailUsecase) SendEmailVerificationMail(email string, link string) error
 func NewMailApp(host string, port int, username, password, sender string, logger *zap.Logger) (*MailUsecase, error) {
 	dialer := gomail.NewDialer(host, port, username, password)
 	cwd, err := os.Getwd()
-	tmplPath := filepath.Join(cwd, "internal", "template", "verify_email.html")
+	tmplPath := filepath.Join(cwd, "template", "verify_email.html")
 	tmpl, err := template.ParseFiles(tmplPath)
 	if err != nil {
 		logger.Error("failed to parse email template", zap.Error(err))

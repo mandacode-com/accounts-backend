@@ -144,7 +144,14 @@ func main() {
 	userEventHandler := kafkahandlerv1.NewUserEventHandler(userEventUsecase)
 
 	// Initialize servers
-	httpServer := httpserver.NewServer(cfg.HTTPServer.Port, logger, localAuthHandler, oauthHandler, sessionStore)
+	httpServer := httpserver.NewServer(
+		cfg.HTTPServer.Port,
+		logger,
+		localAuthHandler,
+		oauthHandler,
+		cfg.SessionStore.SessionName,
+		sessionStore,
+	)
 	kafkaServer := kafkaserver.NewKafkaServer(logger, []*kafkaserver.ReaderHandler{
 		{
 			Reader:  userEventReader,
