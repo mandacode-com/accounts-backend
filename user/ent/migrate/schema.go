@@ -8,6 +8,27 @@ import (
 )
 
 var (
+	// SentEmailsColumns holds the columns for the "sent_emails" table.
+	SentEmailsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeUUID, Unique: true},
+		{Name: "email", Type: field.TypeString},
+		{Name: "sent_at", Type: field.TypeTime},
+		{Name: "user_id", Type: field.TypeUUID},
+	}
+	// SentEmailsTable holds the schema information for the "sent_emails" table.
+	SentEmailsTable = &schema.Table{
+		Name:       "sent_emails",
+		Columns:    SentEmailsColumns,
+		PrimaryKey: []*schema.Column{SentEmailsColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "sent_emails_users_sent_emails",
+				Columns:    []*schema.Column{SentEmailsColumns[3]},
+				RefColumns: []*schema.Column{UsersColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+		},
+	}
 	// UsersColumns holds the columns for the "users" table.
 	UsersColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeUUID, Unique: true},
@@ -28,9 +49,11 @@ var (
 	}
 	// Tables holds all the tables in the schema.
 	Tables = []*schema.Table{
+		SentEmailsTable,
 		UsersTable,
 	}
 )
 
 func init() {
+	SentEmailsTable.ForeignKeys[0].RefTable = UsersTable
 }

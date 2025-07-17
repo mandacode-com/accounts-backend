@@ -10,16 +10,19 @@ import (
 	"mandacode.com/accounts/user/ent"
 	"mandacode.com/accounts/user/ent/user"
 	usermodels "mandacode.com/accounts/user/internal/models/user"
+	"mandacode.com/accounts/user/internal/util"
 )
 
 type UserRepository struct {
-	client *ent.Client
+	client            *ent.Client
+	syncCodeGenerator *util.RandomStringGenerator
 }
 
 // NewUserRepository creates a new UserRepository with the provided database connection string.
-func NewUserRepository(client *ent.Client) *UserRepository {
+func NewUserRepository(client *ent.Client, syncCodeGenerator *util.RandomStringGenerator) *UserRepository {
 	return &UserRepository{
-		client: client,
+		client:            client,
+		syncCodeGenerator: syncCodeGenerator,
 	}
 }
 
@@ -39,8 +42,13 @@ func (r *UserRepository) GetUserByID(ctx context.Context, id uuid.UUID) (*usermo
 
 // CreateUser creates a new user with the provided details.
 func (r *UserRepository) CreateUser(ctx context.Context, id uuid.UUID) (*usermodels.SecureUser, error) {
+	syncCode, err := r.syncCodeGenerator.Generate()
+	if err != nil {
+		return nil, errors.New(err.Error(), "Failed to generate sync code", errcode.ErrInternalFailure)
+	}
 	create := r.client.User.Create().
-		SetID(id)
+		SetID(id).
+		SetSyncCode(syncCode)
 
 	user, err := create.Save(ctx)
 	if err != nil {
@@ -54,8 +62,13 @@ func (r *UserRepository) CreateUser(ctx context.Context, id uuid.UUID) (*usermod
 
 // UpdateIsActive updates the active status of a user.
 func (r *UserRepository) UpdateIsActive(ctx context.Context, id uuid.UUID, isActive bool) (*usermodels.SecureUser, error) {
+	syncCode, err := r.syncCodeGenerator.Generate()
+	if err != nil {
+		return nil, errors.New(err.Error(), "Failed to generate sync code", errcode.ErrInternalFailure)
+	}
 	user, err := r.client.User.UpdateOneID(id).
 		SetIsActive(isActive).
+		SetSyncCode(syncCode).
 		Save(ctx)
 
 	if err != nil {
@@ -82,8 +95,11 @@ func (r *UserRepository) DeleteUser(ctx context.Context, id uuid.UUID) error {
 }
 
 // ArchiveUser archives a user by their ID.
-func (r *UserRepository) ArchiveUser(ctx context.Context, id uuid.UUID, duration time.Duration, syncCode string) (*usermodels.SecureUser, error) {
-	// In this example, archiving is simply setting the isActive field to false.
+func (r *UserRepository) ArchiveUser(ctx context.Context, id uuid.UUID, duration time.Duration) (*usermodels.SecureUser, error) {
+	syncCode, err := r.syncCodeGenerator.Generate()
+	if err != nil {
+		return nil, errors.New(err.Error(), "Failed to generate sync code", errcode.ErrInternalFailure)
+	}
 	user, err := r.client.User.UpdateOneID(id).
 		SetIsArchived(true).
 		SetArchivedAt(time.Now()).
@@ -102,7 +118,11 @@ func (r *UserRepository) ArchiveUser(ctx context.Context, id uuid.UUID, duration
 }
 
 // RestoreUser restores a user by their ID.
-func (r *UserRepository) RestoreUser(ctx context.Context, id uuid.UUID, syncCode string) (*usermodels.SecureUser, error) {
+func (r *UserRepository) RestoreUser(ctx context.Context, id uuid.UUID) (*usermodels.SecureUser, error) {
+	syncCode, err := r.syncCodeGenerator.Generate()
+	if err != nil {
+		return nil, errors.New(err.Error(), "Failed to generate sync code", errcode.ErrInternalFailure)
+	}
 	user, err := r.client.User.UpdateOneID(id).
 		SetIsArchived(false).
 		SetNillableArchivedAt(nil).
@@ -120,7 +140,11 @@ func (r *UserRepository) RestoreUser(ctx context.Context, id uuid.UUID, syncCode
 }
 
 // BlockUser blocks a user by their ID.
-func (r *UserRepository) BlockUser(ctx context.Context, id uuid.UUID, isBlocked bool, syncCode string) (*usermodels.SecureUser, error) {
+func (r *UserRepository) BlockUser(ctx context.Context, id uuid.UUID, isBlocked bool) (*usermodels.SecureUser, error) {
+	syncCode, err := r.syncCodeGenerator.Generate()
+	if err != nil {
+		return nil, errors.New(err.Error(), "Failed to generate sync code", errcode.ErrInternalFailure)
+	}
 	user, err := r.client.User.UpdateOneID(id).
 		SetIsBlocked(isBlocked).
 		SetSyncCode(syncCode).

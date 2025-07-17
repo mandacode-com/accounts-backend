@@ -40,7 +40,7 @@ func (o *OAuthUserHandler) CreateOAuthUser(ctx context.Context, req *authv1.Crea
 		return nil, status.Errorf(codes.InvalidArgument, "invalid provider: %v", err)
 	}
 
-	createUserID, err := o.userUsecase.CreateOAuthUser(ctx, userID, entProvider, req.AccessToken, req.Code)
+	createdUser, err := o.userUsecase.CreateOAuthUser(ctx, userID, entProvider, req.AccessToken, req.Code)
 	if err != nil {
 		o.logger.Error("Failed to create OAuth user", zap.Error(err), zap.String("user_id", req.UserId))
 		if appErr, ok := err.(*errors.AppError); ok {
@@ -50,8 +50,9 @@ func (o *OAuthUserHandler) CreateOAuthUser(ctx context.Context, req *authv1.Crea
 	}
 
 	return &authv1.CreateOAuthUserResponse{
-		UserId:    createUserID.String(),
+		UserId:    createdUser.UserID.String(),
 		Provider:  req.Provider,
+		Email:     createdUser.Email,
 		CreatedAt: timestamppb.Now(),
 	}, nil
 }
@@ -103,7 +104,7 @@ func (o *OAuthUserHandler) SyncOAuthUser(ctx context.Context, req *authv1.SyncOA
 		return nil, status.Errorf(codes.InvalidArgument, "invalid provider: %v", err)
 	}
 
-	updatedUserID, err := o.userUsecase.SyncOAuthUser(ctx, userID, entProvider, req.AccessToken, req.Code)
+	updatedUser, err := o.userUsecase.SyncOAuthUser(ctx, userID, entProvider, req.AccessToken, req.Code)
 	if err != nil {
 		o.logger.Error("Failed to sync OAuth user", zap.Error(err), zap.String("user_id", req.UserId))
 		if appErr, ok := err.(*errors.AppError); ok {
@@ -112,7 +113,7 @@ func (o *OAuthUserHandler) SyncOAuthUser(ctx context.Context, req *authv1.SyncOA
 		return nil, status.Errorf(codes.Internal, "failed to sync OAuth user: %v", err)
 	}
 	return &authv1.SyncOAuthUserResponse{
-		UserId:   updatedUserID.String(),
+		UserId:   updatedUser.UserID.String(),
 		Provider: req.Provider,
 		SyncedAt: timestamppb.Now(),
 	}, nil

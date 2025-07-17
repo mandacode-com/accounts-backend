@@ -10,6 +10,7 @@ import (
 	"mandacode.com/accounts/auth/ent/authaccount"
 
 	"mandacode.com/accounts/auth/internal/infra/oauthapi"
+	signupinfra "mandacode.com/accounts/auth/internal/infra/signup"
 	dbmodels "mandacode.com/accounts/auth/internal/models/database"
 	oauthmodels "mandacode.com/accounts/auth/internal/models/oauth"
 	coderepo "mandacode.com/accounts/auth/internal/repository/code"
@@ -22,6 +23,7 @@ type OAuthLoginUsecase struct {
 	authAccount      *dbrepo.AuthAccountRepository
 	token            *tokenrepo.TokenRepository
 	loginCodeManager *coderepo.CodeManager
+	signupApi        *signupinfra.SignupAPI
 	oauthApiMap      map[authaccount.Provider]oauthapi.OAuthAPI
 }
 
@@ -57,6 +59,7 @@ func (l *OAuthLoginUsecase) getAccessToken(ctx context.Context, provider authacc
 	return accessToken, nil
 }
 
+// getOrCreateVerifiedUser retrieves or creates a verified user based on the OAuth input.
 func (l *OAuthLoginUsecase) getOrCreateVerifiedUser(ctx context.Context, input logindto.OAuthLoginInput) (uuid.UUID, error) {
 	var oauthAccessToken string
 	if input.AccessToken == "" && input.Code != "" {
@@ -83,14 +86,18 @@ func (l *OAuthLoginUsecase) getOrCreateVerifiedUser(ctx context.Context, input l
 	var userID uuid.UUID
 	oauth, err := l.authAccount.GetOAuthAccountByProviderAndProviderID(ctx, input.Provider, userInfo.ProviderID)
 	if err != nil {
-		if errors.Is(err, errcode.ErrNotFound) {
-			// User not found, create a new OAuth account
-			newAccount, err := l.createOAuth(ctx, input.Provider, userInfo)
+		if errors.Is(err, errcode.ErrNotFound) { // If the OAuth account does not exist, create a new one
+			_, err := l.signupApi.OAuthSignup(oauthAccessToken) // Request signup API to create a new user
 			if err != nil {
-				return uuid.Nil, errors.Upgrade(err, "Failed to create OAuth account", errcode.ErrInternalFailure)
+				return uuid.Nil, err
 			}
-			userID = newAccount.UserID
-			verified = newAccount.IsVerified
+			// Retry fetching the OAuth account after signup
+			retryOauth, err := l.authAccount.GetOAuthAccountByProviderAndProviderID(ctx, input.Provider, userInfo.ProviderID)
+			if err != nil {
+				return uuid.Nil, errors.Upgrade(err, "Failed to get OAuth account after signup", errcode.ErrInternalFailure)
+			}
+			userID = retryOauth.UserID
+			verified = retryOauth.IsVerified
 		}
 		return uuid.Nil, errors.Upgrade(err, "Failed to get OAuth account", errcode.ErrInternalFailure)
 	} else {
@@ -181,12 +188,14 @@ func NewOAuthLoginUsecase(
 	authAccount *dbrepo.AuthAccountRepository,
 	token *tokenrepo.TokenRepository,
 	loginCodeManager *coderepo.CodeManager,
+	signupApi *signupinfra.SignupAPI,
 	oauthApiMap map[authaccount.Provider]oauthapi.OAuthAPI,
 ) *OAuthLoginUsecase {
 	return &OAuthLoginUsecase{
 		authAccount:      authAccount,
 		token:            token,
 		loginCodeManager: loginCodeManager,
+		signupApi:        signupApi,
 		oauthApiMap:      oauthApiMap,
 	}
 }

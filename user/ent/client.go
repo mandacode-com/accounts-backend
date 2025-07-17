@@ -15,6 +15,8 @@ import (
 	"entgo.io/ent"
 	"entgo.io/ent/dialect"
 	"entgo.io/ent/dialect/sql"
+	"entgo.io/ent/dialect/sql/sqlgraph"
+	"mandacode.com/accounts/user/ent/sentemail"
 	"mandacode.com/accounts/user/ent/user"
 )
 
@@ -23,6 +25,8 @@ type Client struct {
 	config
 	// Schema is the client for creating, migrating and dropping schema.
 	Schema *migrate.Schema
+	// SentEmail is the client for interacting with the SentEmail builders.
+	SentEmail *SentEmailClient
 	// User is the client for interacting with the User builders.
 	User *UserClient
 }
@@ -36,6 +40,7 @@ func NewClient(opts ...Option) *Client {
 
 func (c *Client) init() {
 	c.Schema = migrate.NewSchema(c.driver)
+	c.SentEmail = NewSentEmailClient(c.config)
 	c.User = NewUserClient(c.config)
 }
 
@@ -127,9 +132,10 @@ func (c *Client) Tx(ctx context.Context) (*Tx, error) {
 	cfg := c.config
 	cfg.driver = tx
 	return &Tx{
-		ctx:    ctx,
-		config: cfg,
-		User:   NewUserClient(cfg),
+		ctx:       ctx,
+		config:    cfg,
+		SentEmail: NewSentEmailClient(cfg),
+		User:      NewUserClient(cfg),
 	}, nil
 }
 
@@ -147,16 +153,17 @@ func (c *Client) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) 
 	cfg := c.config
 	cfg.driver = &txDriver{tx: tx, drv: c.driver}
 	return &Tx{
-		ctx:    ctx,
-		config: cfg,
-		User:   NewUserClient(cfg),
+		ctx:       ctx,
+		config:    cfg,
+		SentEmail: NewSentEmailClient(cfg),
+		User:      NewUserClient(cfg),
 	}, nil
 }
 
 // Debug returns a new debug-client. It's used to get verbose logging on specific operations.
 //
 //	client.Debug().
-//		User.
+//		SentEmail.
 //		Query().
 //		Count(ctx)
 func (c *Client) Debug() *Client {
@@ -178,22 +185,175 @@ func (c *Client) Close() error {
 // Use adds the mutation hooks to all the entity clients.
 // In order to add hooks to a specific client, call: `client.Node.Use(...)`.
 func (c *Client) Use(hooks ...Hook) {
+	c.SentEmail.Use(hooks...)
 	c.User.Use(hooks...)
 }
 
 // Intercept adds the query interceptors to all the entity clients.
 // In order to add interceptors to a specific client, call: `client.Node.Intercept(...)`.
 func (c *Client) Intercept(interceptors ...Interceptor) {
+	c.SentEmail.Intercept(interceptors...)
 	c.User.Intercept(interceptors...)
 }
 
 // Mutate implements the ent.Mutator interface.
 func (c *Client) Mutate(ctx context.Context, m Mutation) (Value, error) {
 	switch m := m.(type) {
+	case *SentEmailMutation:
+		return c.SentEmail.mutate(ctx, m)
 	case *UserMutation:
 		return c.User.mutate(ctx, m)
 	default:
 		return nil, fmt.Errorf("ent: unknown mutation type %T", m)
+	}
+}
+
+// SentEmailClient is a client for the SentEmail schema.
+type SentEmailClient struct {
+	config
+}
+
+// NewSentEmailClient returns a client for the SentEmail from the given config.
+func NewSentEmailClient(c config) *SentEmailClient {
+	return &SentEmailClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `sentemail.Hooks(f(g(h())))`.
+func (c *SentEmailClient) Use(hooks ...Hook) {
+	c.hooks.SentEmail = append(c.hooks.SentEmail, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `sentemail.Intercept(f(g(h())))`.
+func (c *SentEmailClient) Intercept(interceptors ...Interceptor) {
+	c.inters.SentEmail = append(c.inters.SentEmail, interceptors...)
+}
+
+// Create returns a builder for creating a SentEmail entity.
+func (c *SentEmailClient) Create() *SentEmailCreate {
+	mutation := newSentEmailMutation(c.config, OpCreate)
+	return &SentEmailCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of SentEmail entities.
+func (c *SentEmailClient) CreateBulk(builders ...*SentEmailCreate) *SentEmailCreateBulk {
+	return &SentEmailCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *SentEmailClient) MapCreateBulk(slice any, setFunc func(*SentEmailCreate, int)) *SentEmailCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &SentEmailCreateBulk{err: fmt.Errorf("calling to SentEmailClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*SentEmailCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &SentEmailCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for SentEmail.
+func (c *SentEmailClient) Update() *SentEmailUpdate {
+	mutation := newSentEmailMutation(c.config, OpUpdate)
+	return &SentEmailUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *SentEmailClient) UpdateOne(se *SentEmail) *SentEmailUpdateOne {
+	mutation := newSentEmailMutation(c.config, OpUpdateOne, withSentEmail(se))
+	return &SentEmailUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *SentEmailClient) UpdateOneID(id uuid.UUID) *SentEmailUpdateOne {
+	mutation := newSentEmailMutation(c.config, OpUpdateOne, withSentEmailID(id))
+	return &SentEmailUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for SentEmail.
+func (c *SentEmailClient) Delete() *SentEmailDelete {
+	mutation := newSentEmailMutation(c.config, OpDelete)
+	return &SentEmailDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *SentEmailClient) DeleteOne(se *SentEmail) *SentEmailDeleteOne {
+	return c.DeleteOneID(se.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *SentEmailClient) DeleteOneID(id uuid.UUID) *SentEmailDeleteOne {
+	builder := c.Delete().Where(sentemail.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &SentEmailDeleteOne{builder}
+}
+
+// Query returns a query builder for SentEmail.
+func (c *SentEmailClient) Query() *SentEmailQuery {
+	return &SentEmailQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeSentEmail},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a SentEmail entity by its id.
+func (c *SentEmailClient) Get(ctx context.Context, id uuid.UUID) (*SentEmail, error) {
+	return c.Query().Where(sentemail.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *SentEmailClient) GetX(ctx context.Context, id uuid.UUID) *SentEmail {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// QueryUser queries the user edge of a SentEmail.
+func (c *SentEmailClient) QueryUser(se *SentEmail) *UserQuery {
+	query := (&UserClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := se.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(sentemail.Table, sentemail.FieldID, id),
+			sqlgraph.To(user.Table, user.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, sentemail.UserTable, sentemail.UserColumn),
+		)
+		fromV = sqlgraph.Neighbors(se.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// Hooks returns the client hooks.
+func (c *SentEmailClient) Hooks() []Hook {
+	return c.hooks.SentEmail
+}
+
+// Interceptors returns the client interceptors.
+func (c *SentEmailClient) Interceptors() []Interceptor {
+	return c.inters.SentEmail
+}
+
+func (c *SentEmailClient) mutate(ctx context.Context, m *SentEmailMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&SentEmailCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&SentEmailUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&SentEmailUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&SentEmailDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown SentEmail mutation op: %q", m.Op())
 	}
 }
 
@@ -305,6 +465,22 @@ func (c *UserClient) GetX(ctx context.Context, id uuid.UUID) *User {
 	return obj
 }
 
+// QuerySentEmails queries the sent_emails edge of a User.
+func (c *UserClient) QuerySentEmails(u *User) *SentEmailQuery {
+	query := (&SentEmailClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := u.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(user.Table, user.FieldID, id),
+			sqlgraph.To(sentemail.Table, sentemail.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, user.SentEmailsTable, user.SentEmailsColumn),
+		)
+		fromV = sqlgraph.Neighbors(u.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
 // Hooks returns the client hooks.
 func (c *UserClient) Hooks() []Hook {
 	return c.hooks.User
@@ -333,9 +509,9 @@ func (c *UserClient) mutate(ctx context.Context, m *UserMutation) (Value, error)
 // hooks and interceptors per client, for fast access.
 type (
 	hooks struct {
-		User []ent.Hook
+		SentEmail, User []ent.Hook
 	}
 	inters struct {
-		User []ent.Interceptor
+		SentEmail, User []ent.Interceptor
 	}
 )

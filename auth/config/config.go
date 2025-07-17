@@ -56,6 +56,10 @@ type GRPCServerConfig struct {
 type GRPCClientConfig struct {
 	Address string `validate:"required"`
 }
+type SignupAPIConfig struct {
+	Endpoint string        `validate:"required,url"`
+	Timeout  time.Duration `validate:"required,min=1"`
+}
 
 type Config struct {
 	Env             string              `validate:"required,oneof=dev prod"`
@@ -65,10 +69,10 @@ type Config struct {
 	DatabaseURL     string              `validate:"required"`
 	VerifyEmailURL  string              `validate:"required,url"`
 	LoginCodeStore  RedisStoreConfig    `validate:"required"`
-	EmailCodeStore  RedisStoreConfig    `validate:"required"` // Store for email verification codes
 	SessionStore    SessionStoreConfig  `validate:"required"`
 	MailWriter      KafkaWriterConfig   `validate:"required"`
 	UserEventReader KafkaReaderConfig   `validate:"required"`
+	SignupAPI       SignupAPIConfig     `validate:"required"`
 	GoogleOAuth     OAuthProviderConfig `validate:"required"`
 	NaverOAuth      OAuthProviderConfig `validate:"required"`
 	KakaoOAuth      OAuthProviderConfig `validate:"required"`
@@ -97,9 +101,9 @@ func LoadConfig(validator *validator.Validate) (*Config, error) {
 	if err != nil {
 		return nil, errors.New("Invalid LOGIN_CODE_TTL format", "Failed to parse login code TTL", errcode.ErrInvalidInput)
 	}
-	emailCodeTTL, err := time.ParseDuration(getEnv("EMAIL_CODE_TTL", "1h"))
+	signupTimeout, err := time.ParseDuration(getEnv("SIGNUP_API_TIMEOUT", "30s"))
 	if err != nil {
-		return nil, errors.New("Invalid EMAIL_CODE_TTL format", "Failed to parse email code TTL", errcode.ErrInvalidInput)
+		return nil, errors.New("Invalid SIGNUP_API_TIMEOUT format", "Failed to parse signup API timeout", errcode.ErrInvalidInput)
 	}
 
 	config := &Config{
@@ -123,14 +127,6 @@ func LoadConfig(validator *validator.Validate) (*Config, error) {
 			HashKey:  getEnv("LOGIN_CODE_STORE_HASH_KEY", "default_login_code_hash_key"),
 			Timeout:  loginCodeTTL,
 		},
-		EmailCodeStore: RedisStoreConfig{
-			Address:  getEnv("EMAIL_CODE_STORE_ADDRESS", ""),
-			Password: getEnv("EMAIL_CODE_STORE_PASSWORD", ""),
-			DB:       codeStoreDB,
-			Prefix:   getEnv("EMAIL_CODE_STORE_PREFIX", "email_code:"),
-			HashKey:  getEnv("EMAIL_CODE_STORE_HASH_KEY", "default_email_code_hash_key"),
-			Timeout:  emailCodeTTL,
-		},
 		SessionStore: SessionStoreConfig{
 			Address:     getEnv("SESSION_STORE_ADDRESS", ""),
 			Password:    getEnv("SESSION_STORE_PASSWORD", ""),
@@ -146,6 +142,10 @@ func LoadConfig(validator *validator.Validate) (*Config, error) {
 			Brokers: strings.Split(getEnv("USER_EVENT_READER_BROKERS", ""), ","),
 			Topic:   getEnv("USER_EVENT_READER_TOPIC", "user_event"),
 			GroupID: getEnv("USER_EVENT_READER_GROUP_ID", "user_event_group"),
+		},
+		SignupAPI: SignupAPIConfig{
+			Endpoint: getEnv("SIGNUP_API_ENDPOINT", ""),
+			Timeout:  signupTimeout,
 		},
 		GoogleOAuth: OAuthProviderConfig{
 			ClientID:     getEnv("GOOGLE_CLIENT_ID", ""),

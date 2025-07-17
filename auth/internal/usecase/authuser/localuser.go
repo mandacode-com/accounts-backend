@@ -11,9 +11,10 @@ import (
 )
 
 type LocalUserUsecase interface {
-	CreateLocalAuthUser(ctx context.Context, userID uuid.UUID, email string, password string) (uuid.UUID, error)
+	CreateLocalAuthUser(ctx context.Context, userID uuid.UUID, email string, password string) (*dbmodels.SecureLocalAuthAccount, error)
 	DeleteAuthUser(ctx context.Context, userID uuid.UUID) error
-	UpdateAuthUserEmail(ctx context.Context, userID uuid.UUID, newEmail string) error
+	UpdateAuthUserEmail(ctx context.Context, userID uuid.UUID, newEmail string) (*dbmodels.SecureAuthAccount, error)
+	UpdateLocalEmailVerificationStatus(ctx context.Context, userID uuid.UUID, isVerified bool) error
 }
 
 type localUserUsecase struct {
@@ -21,7 +22,7 @@ type localUserUsecase struct {
 }
 
 // CreateLocalAuthUser implements IAuthUserUsecase.
-func (a *localUserUsecase) CreateLocalAuthUser(ctx context.Context, userID uuid.UUID, email string, password string) (uuid.UUID, error) {
+func (a *localUserUsecase) CreateLocalAuthUser(ctx context.Context, userID uuid.UUID, email string, password string) (*dbmodels.SecureLocalAuthAccount, error) {
 	account, err := a.authAccountRepo.CreateLocalAuthAccount(
 		ctx,
 		&dbmodels.CreateLocalAuthAccountInput{
@@ -32,9 +33,9 @@ func (a *localUserUsecase) CreateLocalAuthUser(ctx context.Context, userID uuid.
 		},
 	)
 	if err != nil {
-		return uuid.Nil, errors.Upgrade(err, "Failed to create local auth account", errcode.ErrInternalFailure)
+		return nil, errors.Upgrade(err, "Failed to create local auth account", errcode.ErrInternalFailure)
 	}
-	return account.UserID, nil
+	return account, nil
 }
 
 // DeleteAuthUser implements IAuthUserUsecase.
@@ -46,13 +47,23 @@ func (a *localUserUsecase) DeleteAuthUser(ctx context.Context, userID uuid.UUID)
 }
 
 // UpdateLocalAuthUserEmail implements IAuthUserUsecase.
-func (a *localUserUsecase) UpdateAuthUserEmail(ctx context.Context, userID uuid.UUID, newEmail string) error {
+func (a *localUserUsecase) UpdateAuthUserEmail(ctx context.Context, userID uuid.UUID, newEmail string) (*dbmodels.SecureAuthAccount, error) {
 	account, err := a.authAccountRepo.GetLocalAuthAccountByUserID(ctx, userID)
 	if err != nil {
-		return err
+		return nil, errors.Upgrade(err, "Failed to get local auth account by user ID", errcode.ErrInternalFailure)
 	}
-	if _, err = a.authAccountRepo.UpdateEmailByID(ctx, account.ID, newEmail); err != nil {
-		return err
+	updatedAccount, err := a.authAccountRepo.UpdateEmailByID(ctx, account.ID, newEmail)
+	if err != nil {
+		return nil, errors.Upgrade(err, "Failed to update local auth account email", errcode.ErrInternalFailure)
+	}
+
+	return updatedAccount, nil
+}
+
+// UpdateEmailVerificationStatus implements IAuthUserUsecase.
+func (a *localUserUsecase) UpdateLocalEmailVerificationStatus(ctx context.Context, userID uuid.UUID, isVerified bool) error {
+	if err := a.authAccountRepo.UpdateLocalEmailVerificationStatus(ctx, userID, isVerified); err != nil {
+		return errors.Upgrade(err, "Failed to update email verification status", errcode.ErrInternalFailure)
 	}
 
 	return nil

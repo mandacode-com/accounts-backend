@@ -34,8 +34,29 @@ type User struct {
 	// Timestamp when the user was archived. This is set when the user is archived and can be used for auditing purposes.
 	ArchivedAt *time.Time `json:"archived_at,omitempty"`
 	// Timestamp after which the user will be deleted. This is set when the user is archived and can be used to schedule deletion of the user data.
-	DeleteAfter  *time.Time `json:"delete_after,omitempty"`
+	DeleteAfter *time.Time `json:"delete_after,omitempty"`
+	// Edges holds the relations/edges for other nodes in the graph.
+	// The values are being populated by the UserQuery when eager-loading is set.
+	Edges        UserEdges `json:"edges"`
 	selectValues sql.SelectValues
+}
+
+// UserEdges holds the relations/edges for other nodes in the graph.
+type UserEdges struct {
+	// Edge to the SentEmail entity. This establishes a relationship between the User and SentEmail entities, linking the user to the emails they have sent.
+	SentEmails []*SentEmail `json:"sent_emails,omitempty"`
+	// loadedTypes holds the information for reporting if a
+	// type was loaded (or requested) in eager-loading or not.
+	loadedTypes [1]bool
+}
+
+// SentEmailsOrErr returns the SentEmails value or an error if the edge
+// was not loaded in eager-loading.
+func (e UserEdges) SentEmailsOrErr() ([]*SentEmail, error) {
+	if e.loadedTypes[0] {
+		return e.SentEmails, nil
+	}
+	return nil, &NotLoadedError{edge: "sent_emails"}
 }
 
 // scanValues returns the types for scanning values from sql.Rows.
@@ -133,6 +154,11 @@ func (u *User) assignValues(columns []string, values []any) error {
 // This includes values selected through modifiers, order, etc.
 func (u *User) Value(name string) (ent.Value, error) {
 	return u.selectValues.Get(name)
+}
+
+// QuerySentEmails queries the "sent_emails" edge of the User entity.
+func (u *User) QuerySentEmails() *SentEmailQuery {
+	return NewUserClient(u.config).QuerySentEmails(u)
 }
 
 // Update returns a builder for updating this User.

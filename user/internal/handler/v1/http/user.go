@@ -8,19 +8,21 @@ import (
 	"github.com/mandacode-com/golib/errors"
 	"github.com/mandacode-com/golib/errors/errcode"
 	"go.uber.org/zap"
-	"mandacode.com/accounts/user/internal/usecase/user"
+	manage "mandacode.com/accounts/user/internal/usecase/management"
 )
 
 type UserHandler struct {
-	userUsecase *user.UserUsecase
-	uidHeader   string
-	logger      *zap.Logger
+	manageUsecase *manage.SelfManageUsecase
+	uidHeader     string
+	logger        *zap.Logger
 }
 
 // NewUserHandler creates a new UserHandler with the provided use case.
-func NewUserHandler(userUsecase *user.UserUsecase) *UserHandler {
+func NewUserHandler(manageUsecase *manage.SelfManageUsecase, uidHeader string, logger *zap.Logger) *UserHandler {
 	return &UserHandler{
-		userUsecase: userUsecase,
+		manageUsecase: manageUsecase,
+		uidHeader:     uidHeader,
+		logger:        logger,
 	}
 }
 
@@ -53,7 +55,7 @@ func (h *UserHandler) GetUser(ctx *gin.Context) {
 		return
 	}
 
-	user, err := h.userUsecase.GetUserByID(ctx, parsedID)
+	user, err := h.manageUsecase.GetUserByID(ctx, parsedID)
 	if err != nil {
 		ctx.Error(err)
 		if appErr, ok := err.(*errors.AppError); ok {
@@ -98,7 +100,7 @@ func (h *UserHandler) DeleteUser(ctx *gin.Context) {
 		return
 	}
 
-	archivedUser, err := h.userUsecase.ArchiveUser(ctx, parsedID)
+	archivedUser, err := h.manageUsecase.ArchiveUser(ctx, parsedID)
 	if err != nil {
 		ctx.Error(err)
 		if appErr, ok := err.(*errors.AppError); ok {

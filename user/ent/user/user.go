@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"entgo.io/ent/dialect/sql"
+	"entgo.io/ent/dialect/sql/sqlgraph"
 	"github.com/google/uuid"
 )
 
@@ -30,8 +31,17 @@ const (
 	FieldArchivedAt = "archived_at"
 	// FieldDeleteAfter holds the string denoting the delete_after field in the database.
 	FieldDeleteAfter = "delete_after"
+	// EdgeSentEmails holds the string denoting the sent_emails edge name in mutations.
+	EdgeSentEmails = "sent_emails"
 	// Table holds the table name of the user in the database.
 	Table = "users"
+	// SentEmailsTable is the table that holds the sent_emails relation/edge.
+	SentEmailsTable = "sent_emails"
+	// SentEmailsInverseTable is the table name for the SentEmail entity.
+	// It exists in this package in order to avoid circular dependency with the "sentemail" package.
+	SentEmailsInverseTable = "sent_emails"
+	// SentEmailsColumn is the table column denoting the sent_emails relation/edge.
+	SentEmailsColumn = "user_id"
 )
 
 // Columns holds all SQL columns for user fields.
@@ -120,4 +130,25 @@ func ByArchivedAt(opts ...sql.OrderTermOption) OrderOption {
 // ByDeleteAfter orders the results by the delete_after field.
 func ByDeleteAfter(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldDeleteAfter, opts...).ToFunc()
+}
+
+// BySentEmailsCount orders the results by sent_emails count.
+func BySentEmailsCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newSentEmailsStep(), opts...)
+	}
+}
+
+// BySentEmails orders the results by sent_emails terms.
+func BySentEmails(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newSentEmailsStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
+func newSentEmailsStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(SentEmailsInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, SentEmailsTable, SentEmailsColumn),
+	)
 }

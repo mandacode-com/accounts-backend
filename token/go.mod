@@ -7,7 +7,7 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/joho/godotenv v1.5.1
 	github.com/mandacode-com/accounts-proto v0.1.1
-	github.com/mandacode-com/golib v0.1.14
+	github.com/mandacode-com/golib v0.1.15
 	go.uber.org/mock v0.5.2
 	go.uber.org/zap v1.27.0
 	google.golang.org/grpc v1.73.0

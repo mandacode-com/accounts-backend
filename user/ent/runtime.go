@@ -7,6 +7,7 @@ import (
 
 	"github.com/google/uuid"
 	"mandacode.com/accounts/user/ent/schema"
+	"mandacode.com/accounts/user/ent/sentemail"
 	"mandacode.com/accounts/user/ent/user"
 )
 
@@ -14,6 +15,20 @@ import (
 // (default values, validators, hooks and policies) and stitches it
 // to their package variables.
 func init() {
+	sentemailFields := schema.SentEmail{}.Fields()
+	_ = sentemailFields
+	// sentemailDescEmail is the schema descriptor for email field.
+	sentemailDescEmail := sentemailFields[2].Descriptor()
+	// sentemail.EmailValidator is a validator for the "email" field. It is called by the builders before save.
+	sentemail.EmailValidator = sentemailDescEmail.Validators[0].(func(string) error)
+	// sentemailDescSentAt is the schema descriptor for sent_at field.
+	sentemailDescSentAt := sentemailFields[3].Descriptor()
+	// sentemail.DefaultSentAt holds the default value on creation for the sent_at field.
+	sentemail.DefaultSentAt = sentemailDescSentAt.Default.(func() time.Time)
+	// sentemailDescID is the schema descriptor for id field.
+	sentemailDescID := sentemailFields[0].Descriptor()
+	// sentemail.DefaultID holds the default value on creation for the id field.
+	sentemail.DefaultID = sentemailDescID.Default.(func() uuid.UUID)
 	userFields := schema.User{}.Fields()
 	_ = userFields
 	// userDescIsActive is the schema descriptor for is_active field.

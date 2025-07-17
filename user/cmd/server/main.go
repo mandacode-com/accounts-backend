@@ -7,18 +7,28 @@ import (
 
 	"github.com/go-playground/validator/v10"
 	"github.com/mandacode-com/golib/server"
+	"github.com/redis/go-redis/v9"
 	"github.com/segmentio/kafka-go"
 	"go.uber.org/zap"
-	grpcserver "mandacode.com/accounts/user/cmd/server/grpc"
 	httpserver "mandacode.com/accounts/user/cmd/server/http"
 	"mandacode.com/accounts/user/config"
-	grpchandlerv1 "mandacode.com/accounts/user/internal/handler/v1/grpc"
+
 	httphandlerv1 "mandacode.com/accounts/user/internal/handler/v1/http"
+	authinfra "mandacode.com/accounts/user/internal/infra/auth"
 	dbinfra "mandacode.com/accounts/user/internal/infra/database"
+	profileinfra "mandacode.com/accounts/user/internal/infra/profile"
+	tokeninfra "mandacode.com/accounts/user/internal/infra/token"
+	authrepo "mandacode.com/accounts/user/internal/repository/auth"
+	coderepo "mandacode.com/accounts/user/internal/repository/code"
 	dbrepo "mandacode.com/accounts/user/internal/repository/database"
+	maileventrepo "mandacode.com/accounts/user/internal/repository/mailevent"
+	profilerepo "mandacode.com/accounts/user/internal/repository/profile"
+	tokenrepo "mandacode.com/accounts/user/internal/repository/token"
 	usereventrepo "mandacode.com/accounts/user/internal/repository/userevent"
 	"mandacode.com/accounts/user/internal/usecase/admin"
-	"mandacode.com/accounts/user/internal/usecase/user"
+	manage "mandacode.com/accounts/user/internal/usecase/management"
+	"mandacode.com/accounts/user/internal/usecase/signup"
+	"mandacode.com/accounts/user/internal/util"
 )
 
 func main() {
@@ -35,42 +45,81 @@ func main() {
 		logger.Fatal("failed to load configuration", zap.Error(err))
 	}
 
-	// Initialize Client
-	dbClient, err := dbinfra.NewEntClient(cfg.DatabaseURL)
-	if err != nil {
-		logger.Fatal("failed to create database client", zap.Error(err))
-	}
+	// Util
+	mailCodeGenerator := util.NewRandomStringGenerator(32)
+
+	// Initialize Redis clients
+	emailCodeStore := redis.NewClient(&redis.Options{
+		Addr:     cfg.EmailCodeStore.Address,
+		Password: cfg.EmailCodeStore.Password,
+		DB:       cfg.EmailCodeStore.DB,
+	})
+
+	// Initialize Kafka writers
 	userEventWriter := &kafka.Writer{
 		Addr:                   kafka.TCP(cfg.UserEventWriter.Address...),
 		Topic:                  cfg.UserEventWriter.Topic,
 		Balancer:               &kafka.Hash{},
 		AllowAutoTopicCreation: true,
 	}
+	mailEventWriter := &kafka.Writer{
+		Addr:                   kafka.TCP(cfg.MailEventWriter.Address...),
+		Topic:                  cfg.MailEventWriter.Topic,
+		Balancer:               &kafka.Hash{},
+		AllowAutoTopicCreation: true,
+	}
+
+	// Initialize Client
+	dbClient, err := dbinfra.NewEntClient(cfg.DatabaseURL)
+	if err != nil {
+		logger.Fatal("failed to create database client", zap.Error(err))
+	}
+	localUserClient, _, err := authinfra.NewLocalUserClient(cfg.AuthClient.Address)
+	if err != nil {
+		logger.Fatal("failed to create local user client", zap.Error(err))
+	}
+	oauthUserClient, _, err := authinfra.NewOAuthUserClient(cfg.AuthClient.Address)
+	if err != nil {
+		logger.Fatal("failed to create OAuth user client", zap.Error(err))
+	}
+	profileClient, _, err := profileinfra.NewProfileClient(cfg.ProfileClient.Address)
+	if err != nil {
+		logger.Fatal("failed to create profile client", zap.Error(err))
+	}
+	tokenClient, _, err := tokeninfra.NewTokenClient(cfg.TokenClient.Address)
+	if err != nil {
+		logger.Fatal("failed to create token client", zap.Error(err))
+	}
+
+	syncCodeGenerator := util.NewRandomStringGenerator(16)
 
 	// Initialize repository
-	userRepo := dbrepo.NewUserRepository(dbClient)
+	userRepo := dbrepo.NewUserRepository(dbClient, syncCodeGenerator)
+	sentEmailRepo := dbrepo.NewSentEmailRepository(dbClient)
 	userEventRepo := usereventrepo.NewUserEventEmitter(userEventWriter)
+	authRepo := authrepo.NewAuthRepository(localUserClient, oauthUserClient)
+	profileRepo := profilerepo.NewProfileRepository(profileClient)
+	mailTokenRepo := tokenrepo.NewTokenRepository(tokenClient)
+	mailEventRepo := maileventrepo.NewMailEventEmitter(mailEventWriter)
+	mailCodeManager := coderepo.NewCodeManager(mailCodeGenerator, cfg.EmailCodeStore.Timeout, emailCodeStore, cfg.EmailCodeStore.Prefix)
 
 	// Initialize use cases
-	userUsecase := user.NewUserUsecase(userRepo, userEventRepo)
 	adminUsecase := admin.NewAdminUsecase()
+	adminManageUsecase := manage.NewAdminManageUsecase(userRepo, userEventRepo)
+	selfManageUsecase := manage.NewSelfManageUsecase(userRepo, userEventRepo)
+	signupUsecase := signup.NewSignupUsecase(authRepo, profileRepo, userRepo, userEventRepo)
+	verifyEmailUsecase := signup.NewVerifyEmailUsecase(sentEmailRepo, authRepo, mailTokenRepo, mailEventRepo, mailCodeManager, cfg.EmailVerificationLink, cfg.MaxSentEmails, cfg.MaxSentEmailsDuration)
 
-	httpUserHandler := httphandlerv1.NewUserHandler(userUsecase)
-	httpAdminHandler := httphandlerv1.NewAdminHandler(adminUsecase, userUsecase)
+	// Initialize HTTP handlers
+	httpUserHandler := httphandlerv1.NewUserHandler(selfManageUsecase, cfg.UserIDHeaderKey, logger)
+	httpAdminHandler := httphandlerv1.NewAdminHandler(adminUsecase, adminManageUsecase)
+	httpSignupHandler := httphandlerv1.NewSignupHandler(signupUsecase, verifyEmailUsecase, validator, logger)
 
-	grpcUserHandler := grpchandlerv1.NewUserHandler(userUsecase)
-
-	httpServer := httpserver.NewServer(cfg.HTTPServer.Port, logger, httpAdminHandler, httpUserHandler)
-	grpcServer, err := grpcserver.NewGRPCServer(cfg.GRPCServer.Port, logger, grpcUserHandler, []string{
-		"user.v1.UserService",
-	})
-	if err != nil {
-		logger.Fatal("failed to create gRPC server", zap.Error(err))
-	}
+	// Initialize HTTP server
+	httpServer := httpserver.NewServer(cfg.HTTPServer.Port, logger, httpAdminHandler, httpUserHandler, httpSignupHandler)
 
 	serverManager := server.NewServerManager([]server.Server{
 		httpServer,
-		grpcServer,
 	})
 
 	ctx, cancel := context.WithCancel(context.Background())

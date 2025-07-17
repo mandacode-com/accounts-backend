@@ -25,3 +25,15 @@ func (r *RandomStringGenerator) Generate() (string, error) {
 
 	return string(b), nil
 }
+
+func GenerateRandomString(length int) (string, error) {
+	b := make([]byte, length)
+	_, err := rand.Read(b)
+	if err != nil {
+		return "", err
+	}
+	for i := range b {
+		b[i] = charset[b[i]%byte(len(charset))]
+	}
+	return string(b), nil
+}

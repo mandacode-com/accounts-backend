@@ -13,9 +13,9 @@ import (
 )
 
 type OAuthUserUsecase interface {
-	CreateOAuthUser(ctx context.Context, userID uuid.UUID, provider authaccount.Provider, accessToken *string, code *string) (uuid.UUID, error)
+	CreateOAuthUser(ctx context.Context, userID uuid.UUID, provider authaccount.Provider, accessToken *string, code *string) (*dbmodels.SecureOAuthAuthAccount, error)
 	DeleteOAuthUser(ctx context.Context, userID uuid.UUID) error
-	SyncOAuthUser(ctx context.Context, userID uuid.UUID, provider authaccount.Provider, accessToken *string, code *string) (uuid.UUID, error)
+	SyncOAuthUser(ctx context.Context, userID uuid.UUID, provider authaccount.Provider, accessToken *string, code *string) (*dbmodels.SecureOAuthAuthAccount, error)
 }
 
 type oauthUserUsecase struct {
@@ -24,10 +24,10 @@ type oauthUserUsecase struct {
 }
 
 // CreateOAuthUser implements IAuthUserUsecase.
-func (a *oauthUserUsecase) CreateOAuthUser(ctx context.Context, userID uuid.UUID, provider authaccount.Provider, accessToken *string, code *string) (uuid.UUID, error) {
+func (a *oauthUserUsecase) CreateOAuthUser(ctx context.Context, userID uuid.UUID, provider authaccount.Provider, accessToken *string, code *string) (*dbmodels.SecureOAuthAuthAccount, error) {
 	api, ok := a.oauthApiMap[provider]
 	if !ok {
-		return uuid.Nil, errors.New("unsupported provider: "+string(provider), "UnsupportedProvider", errcode.ErrInvalidInput)
+		return nil, errors.New("unsupported provider: "+string(provider), "UnsupportedProvider", errcode.ErrInvalidInput)
 	}
 
 	var oauthAccessToken string
@@ -37,15 +37,15 @@ func (a *oauthUserUsecase) CreateOAuthUser(ctx context.Context, userID uuid.UUID
 		var err error
 		oauthAccessToken, err = api.GetAccessToken(*code)
 		if err != nil {
-			return uuid.Nil, errors.Upgrade(err, "Failed to get access token from OAuth provider", errcode.ErrUnauthorized)
+			return nil, errors.Upgrade(err, "Failed to get access token from OAuth provider", errcode.ErrUnauthorized)
 		}
 	} else {
-		return uuid.Nil, errors.New("either access token or code must be provided", "InvalidInput", errcode.ErrInvalidInput)
+		return nil, errors.New("either access token or code must be provided", "InvalidInput", errcode.ErrInvalidInput)
 	}
 
 	userInfo, err := api.GetUserInfo(oauthAccessToken)
 	if err != nil {
-		return uuid.Nil, errors.Upgrade(err, "Failed to get user info from OAuth provider", errcode.ErrUnauthorized)
+		return nil, errors.Upgrade(err, "Failed to get user info from OAuth provider", errcode.ErrUnauthorized)
 	}
 
 	account, err := a.authAccountRepo.CreateOAuthAuthAccount(
@@ -54,13 +54,14 @@ func (a *oauthUserUsecase) CreateOAuthUser(ctx context.Context, userID uuid.UUID
 			UserID:     userID,
 			Provider:   provider,
 			ProviderID: userInfo.ProviderID,
-			IsVerified: true, // OAuth accounts are typically verified upon creation
+			Email:      userInfo.Email,
+			IsVerified: userInfo.EmailVerified,
 		},
 	)
 	if err != nil {
-		return uuid.Nil, errors.Upgrade(err, "Failed to create OAuth account", errcode.ErrInternalFailure)
+		return nil, errors.Upgrade(err, "Failed to create OAuth account", errcode.ErrInternalFailure)
 	}
-	return account.UserID, nil
+	return account, nil
 }
 
 // DeleteOAuthUser implements IAuthUserUsecase.
@@ -72,10 +73,10 @@ func (a *oauthUserUsecase) DeleteOAuthUser(ctx context.Context, userID uuid.UUID
 }
 
 // SyncOAuthUser implements IAuthUserUsecase.
-func (a *oauthUserUsecase) SyncOAuthUser(ctx context.Context, userID uuid.UUID, provider authaccount.Provider, accessToken *string, code *string) (uuid.UUID, error) {
+func (a *oauthUserUsecase) SyncOAuthUser(ctx context.Context, userID uuid.UUID, provider authaccount.Provider, accessToken *string, code *string) (*dbmodels.SecureOAuthAuthAccount, error) {
 	api, ok := a.oauthApiMap[provider]
 	if !ok {
-		return uuid.Nil, errors.New("unsupported provider: "+string(provider), "UnsupportedProvider", errcode.ErrInvalidInput)
+		return nil, errors.New("unsupported provider: "+string(provider), "UnsupportedProvider", errcode.ErrInvalidInput)
 	}
 
 	var oauthAccessToken string
@@ -85,15 +86,15 @@ func (a *oauthUserUsecase) SyncOAuthUser(ctx context.Context, userID uuid.UUID, 
 		var err error
 		oauthAccessToken, err = api.GetAccessToken(*code)
 		if err != nil {
-			return uuid.Nil, errors.Upgrade(err, "Failed to get access token from OAuth provider", errcode.ErrUnauthorized)
+			return nil, errors.Upgrade(err, "Failed to get access token from OAuth provider", errcode.ErrUnauthorized)
 		}
 	} else {
-		return uuid.Nil, errors.New("either access token or code must be provided", "InvalidInput", errcode.ErrInvalidInput)
+		return nil, errors.New("either access token or code must be provided", "InvalidInput", errcode.ErrInvalidInput)
 	}
 
 	userInfo, err := api.GetUserInfo(oauthAccessToken)
 	if err != nil {
-		return uuid.Nil, errors.Upgrade(err, "Failed to get user info from OAuth provider", errcode.ErrUnauthorized)
+		return nil, errors.Upgrade(err, "Failed to get user info from OAuth provider", errcode.ErrUnauthorized)
 	}
 
 	account, err := a.authAccountRepo.GetOAuthAccountByProviderAndProviderID(
@@ -102,7 +103,7 @@ func (a *oauthUserUsecase) SyncOAuthUser(ctx context.Context, userID uuid.UUID, 
 		userInfo.ProviderID,
 	)
 	if err != nil {
-		return uuid.Nil, errors.Upgrade(err, "Failed to sync OAuth account", errcode.ErrInternalFailure)
+		return nil, errors.Upgrade(err, "Failed to sync OAuth account", errcode.ErrInternalFailure)
 	}
 
 	_, err = a.authAccountRepo.UpdateEmailByID(
@@ -111,13 +112,13 @@ func (a *oauthUserUsecase) SyncOAuthUser(ctx context.Context, userID uuid.UUID, 
 		userInfo.Email,
 	)
 	if err != nil {
-		return uuid.Nil, errors.Upgrade(err, "Failed to update OAuth account email", errcode.ErrInternalFailure)
+		return nil, errors.Upgrade(err, "Failed to update OAuth account email", errcode.ErrInternalFailure)
 	}
 
-	return account.UserID, nil
+	return account, nil
 }
 
-func NewOAuthUserUsecase(authAccountRepo *dbrepo.AuthAccountRepository, oauthApis map[authaccount.Provider]oauthapi.OAuthAPI) OAuthUserUsecase {	
+func NewOAuthUserUsecase(authAccountRepo *dbrepo.AuthAccountRepository, oauthApis map[authaccount.Provider]oauthapi.OAuthAPI) OAuthUserUsecase {
 	return &oauthUserUsecase{
 		authAccountRepo: authAccountRepo,
 		oauthApiMap:     oauthApis,

@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"net/http"
 	"os"
 	"os/signal"
 
@@ -23,6 +24,7 @@ import (
 	kafkahandlerv1 "mandacode.com/accounts/auth/internal/handler/v1/kafka"
 	dbinfra "mandacode.com/accounts/auth/internal/infra/database"
 	"mandacode.com/accounts/auth/internal/infra/oauthapi"
+	signupinfra "mandacode.com/accounts/auth/internal/infra/signup"
 	tokeninfra "mandacode.com/accounts/auth/internal/infra/token"
 	coderepo "mandacode.com/accounts/auth/internal/repository/code"
 	dbrepository "mandacode.com/accounts/auth/internal/repository/database"
@@ -99,6 +101,13 @@ func main() {
 		authaccount.ProviderNaver:  naverApi,
 		authaccount.ProviderKakao:  kakaoApi,
 	}
+	singupApi, err := signupinfra.NewSignupApi(
+		cfg.SignupAPI.Endpoint,
+		&http.Client{
+			Timeout: cfg.SignupAPI.Timeout,
+		},
+		validator,
+	)
 
 	// Initialize random code generators
 	loginCodeGenerator := util.NewRandomGenerator(32)
@@ -114,7 +123,7 @@ func main() {
 	localUserUsecase := authuser.NewLocalUserUsecase(authAccountRepo)
 	oauthUserUsecase := authuser.NewOAuthUserUsecase(authAccountRepo, oauthApis)
 	localLoginUsecase := login.NewLocalLoginUsecase(authAccountRepo, tokenRepo, loginCodeManager)
-	oauthLoginUsecase := login.NewOAuthLoginUsecase(authAccountRepo, tokenRepo, loginCodeManager, oauthApis)
+	oauthLoginUsecase := login.NewOAuthLoginUsecase(authAccountRepo, tokenRepo, loginCodeManager, singupApi, oauthApis)
 	userEventUsecase := userevent.NewUserEventUsecase(authAccountRepo)
 
 	// Initialize handlers

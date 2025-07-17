@@ -20,6 +20,35 @@ type LocalUserHandler struct {
 	logger      *zap.Logger
 }
 
+// UpdateEmailVerification implements authv1.LocalUserServiceServer.
+func (l *LocalUserHandler) UpdateEmailVerification(ctx context.Context, req *authv1.UpdateEmailVerificationRequest) (*authv1.UpdateEmailVerificationResponse, error) {
+	if err := req.Validate(); err != nil {
+		l.logger.Error("UpdateEmailVerification request validation failed", zap.Error(err))
+		return nil, status.Errorf(codes.InvalidArgument, "invalid request: %v", err)
+	}
+
+	userID, err := uuid.Parse(req.UserId)
+	if err != nil {
+		l.logger.Error("Invalid user ID format", zap.Error(err), zap.String("user_id", req.UserId))
+		return nil, status.Errorf(codes.InvalidArgument, "invalid user ID: %v", err)
+	}
+
+	err = l.userUsecase.UpdateLocalEmailVerificationStatus(ctx, userID, req.Verified)
+	if err != nil {
+		l.logger.Error("Failed to update email verification status", zap.Error(err), zap.String("user_id", req.UserId))
+		if appErr, ok := err.(*errors.AppError); ok {
+			return nil, status.Errorf(errcode.MapCodeToGRPC(appErr.Code()), appErr.Public())
+		}
+		return nil, status.Errorf(codes.Internal, "failed to update email verification status: %v", err)
+	}
+
+	return &authv1.UpdateEmailVerificationResponse{
+		UserId:    req.UserId,
+		Verified:  req.Verified,
+		UpdatedAt: timestamppb.Now(),
+	}, nil
+}
+
 // CreateLocalUser implements authv1.LocalUserServiceServer.
 func (l *LocalUserHandler) CreateLocalUser(ctx context.Context, req *authv1.CreateLocalUserRequest) (*authv1.CreateLocalUserResponse, error) {
 	if err := req.Validate(); err != nil {
@@ -33,7 +62,7 @@ func (l *LocalUserHandler) CreateLocalUser(ctx context.Context, req *authv1.Crea
 		return nil, status.Errorf(codes.InvalidArgument, "invalid user ID: %v", err)
 	}
 
-	createUserID, err := l.userUsecase.CreateLocalAuthUser(ctx, userID, req.Email, req.Password)
+	createdUser, err := l.userUsecase.CreateLocalAuthUser(ctx, userID, req.Email, req.Password)
 	if err != nil {
 		l.logger.Error("Failed to create local user", zap.Error(err), zap.String("user_id", req.UserId))
 		if appErr, ok := err.(*errors.AppError); ok {
@@ -43,7 +72,7 @@ func (l *LocalUserHandler) CreateLocalUser(ctx context.Context, req *authv1.Crea
 	}
 
 	return &authv1.CreateLocalUserResponse{
-		UserId:    createUserID.String(),
+		UserId:    createdUser.UserID.String(),
 		CreatedAt: timestamppb.Now(),
 	}, nil
 }
@@ -84,7 +113,7 @@ func (l *LocalUserHandler) UpdateLocalUserEmail(ctx context.Context, req *authv1
 		return nil, status.Errorf(codes.InvalidArgument, "invalid user ID: %v", err)
 	}
 
-	err = l.userUsecase.UpdateAuthUserEmail(ctx, userID, req.NewEmail)
+	updatedUser, err := l.userUsecase.UpdateAuthUserEmail(ctx, userID, req.NewEmail)
 	if err != nil {
 		l.logger.Error("Failed to update local user email", zap.Error(err), zap.String("user_id", req.UserId))
 		if appErr, ok := err.(*errors.AppError); ok {
@@ -94,8 +123,8 @@ func (l *LocalUserHandler) UpdateLocalUserEmail(ctx context.Context, req *authv1
 	}
 
 	return &authv1.UpdateLocalUserEmailResponse{
-		UserId:       req.UserId,
-		UpdatedEmail: req.NewEmail,
+		UserId:       updatedUser.UserID.String(),
+		UpdatedEmail: updatedUser.Email,
 		UpdatedAt:    timestamppb.Now(),
 	}, nil
 }
