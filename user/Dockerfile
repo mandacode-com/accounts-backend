@@ -38,10 +38,8 @@ USER 1001
 # Set environment variables
 ENV ENV=prod
 ENV HTTP_PORT=8080
-ENV GRPC_PORT=50051
 
 # Expose ports
 EXPOSE 8080
-EXPOSE 50051
 
 ENTRYPOINT ["/app/server"]

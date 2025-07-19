@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"net/http"
 	"os"
 	"os/signal"
 
@@ -11,23 +12,25 @@ import (
 	"github.com/redis/go-redis/v9"
 	"github.com/segmentio/kafka-go"
 	"go.uber.org/zap"
+	grpcserver "mandacode.com/accounts/auth/cmd/server/grpc"
 	httpserver "mandacode.com/accounts/auth/cmd/server/http"
 	kafkaserver "mandacode.com/accounts/auth/cmd/server/kafka"
 	"mandacode.com/accounts/auth/config"
 	"mandacode.com/accounts/auth/ent/authaccount"
 
 	_ "mandacode.com/accounts/auth/ent/runtime"
+	grpchandlerv1 "mandacode.com/accounts/auth/internal/handler/v1/grpc"
 	"mandacode.com/accounts/auth/internal/handler/v1/http"
 	kafkahandlerv1 "mandacode.com/accounts/auth/internal/handler/v1/kafka"
 	dbinfra "mandacode.com/accounts/auth/internal/infra/database"
-	"mandacode.com/accounts/auth/internal/infra/mailer"
 	"mandacode.com/accounts/auth/internal/infra/oauthapi"
+	signupinfra "mandacode.com/accounts/auth/internal/infra/signup"
 	tokeninfra "mandacode.com/accounts/auth/internal/infra/token"
 	coderepo "mandacode.com/accounts/auth/internal/repository/code"
 	dbrepository "mandacode.com/accounts/auth/internal/repository/database"
 	tokenrepo "mandacode.com/accounts/auth/internal/repository/token"
-	"mandacode.com/accounts/auth/internal/usecase/localauth"
-	oauthusecase "mandacode.com/accounts/auth/internal/usecase/oauthauth"
+	"mandacode.com/accounts/auth/internal/usecase/authuser"
+	"mandacode.com/accounts/auth/internal/usecase/login"
 	"mandacode.com/accounts/auth/internal/usecase/userevent"
 	"mandacode.com/accounts/auth/internal/util"
 )
@@ -52,11 +55,6 @@ func main() {
 		Password: cfg.LoginCodeStore.Password,
 		DB:       cfg.LoginCodeStore.DB,
 	})
-	emailCodeStore := redis.NewClient(&redis.Options{
-		Addr:     cfg.EmailCodeStore.Address,
-		Password: cfg.EmailCodeStore.Password,
-		DB:       cfg.EmailCodeStore.DB,
-	})
 	sessionStore, err := sessionredis.NewStore(
 		cfg.SessionStore.DB,
 		"tcp",
@@ -78,15 +76,6 @@ func main() {
 	if err != nil {
 		logger.Fatal("failed to create token client", zap.Error(err))
 	}
-
-	// Initialize mailer
-	mailWriter := &kafka.Writer{
-		Addr:                   kafka.TCP(cfg.MailWriter.Address...),
-		Topic:                  cfg.MailWriter.Topic,
-		Balancer:               &kafka.Hash{},
-		AllowAutoTopicCreation: true,
-	}
-	mailer := mailer.NewMailer(mailWriter)
 
 	userEventReader := kafka.NewReader(kafka.ReaderConfig{
 		Brokers: cfg.UserEventReader.Brokers,
@@ -112,9 +101,15 @@ func main() {
 		authaccount.ProviderNaver:  naverApi,
 		authaccount.ProviderKakao:  kakaoApi,
 	}
+	singupApi, err := signupinfra.NewSignupApi(
+		cfg.SignupAPI.Endpoint,
+		&http.Client{
+			Timeout: cfg.SignupAPI.Timeout,
+		},
+		validator,
+	)
 
 	// Initialize random code generators
-	emailCodeGenerator := util.NewRandomGenerator(32)
 	loginCodeGenerator := util.NewRandomGenerator(32)
 
 	// Initialize repositories
@@ -123,17 +118,19 @@ func main() {
 
 	// Initialize code managers
 	loginCodeManager := coderepo.NewCodeManager(loginCodeGenerator, cfg.LoginCodeStore.Timeout, loginCodeStore, cfg.LoginCodeStore.Prefix)
-	emailCodeManager := coderepo.NewCodeManager(emailCodeGenerator, cfg.EmailCodeStore.Timeout, emailCodeStore, cfg.EmailCodeStore.Prefix)
 
 	// Initialize use cases
-	localLoginUsecase := localauth.NewLoginUsecase(authAccountRepo, tokenRepo, loginCodeManager)
-	localSignupUsecase := localauth.NewSignupUsecase(authAccountRepo, tokenRepo, mailer, emailCodeManager, cfg.VerifyEmailURL)
-	oauthLoginUsecase := oauthusecase.NewLoginUsecase(authAccountRepo, tokenRepo, loginCodeManager, oauthApis)
-
+	localUserUsecase := authuser.NewLocalUserUsecase(authAccountRepo)
+	oauthUserUsecase := authuser.NewOAuthUserUsecase(authAccountRepo, oauthApis)
+	localLoginUsecase := login.NewLocalLoginUsecase(authAccountRepo, tokenRepo, loginCodeManager)
+	oauthLoginUsecase := login.NewOAuthLoginUsecase(authAccountRepo, tokenRepo, loginCodeManager, singupApi, oauthApis)
 	userEventUsecase := userevent.NewUserEventUsecase(authAccountRepo)
 
 	// Initialize handlers
-	localAuthHandler, err := httphandlerv1.NewLocalAuthHandler(localLoginUsecase, localSignupUsecase, logger, validator)
+	localUserHandler := grpchandlerv1.NewLocalUserHandler(localUserUsecase, logger)
+	oauthUserHandler := grpchandlerv1.NewOAuthUserHandler(oauthUserUsecase, logger)
+
+	localAuthHandler, err := httphandlerv1.NewLocalAuthHandler(localLoginUsecase, logger, validator)
 	if err != nil {
 		logger.Fatal("failed to create local auth handler", zap.Error(err))
 	}
@@ -158,9 +155,26 @@ func main() {
 			Handler: userEventHandler,
 		},
 	})
+	grpcServer, err := grpcserver.NewGRPCServer(
+		cfg.GRPCServer.Port,
+		logger,
+		localUserHandler,
+		oauthUserHandler,
+		[]string{
+			"accounts.auth.v1.LocalUserService",
+			"accounts.auth.v1.OAuthUserService",
+		},
+	)
+	if err != nil {
+		logger.Fatal("failed to create gRPC server", zap.Error(err))
+	}
 
 	serverManager := server.NewServerManager(
-		[]server.Server{httpServer, kafkaServer},
+		[]server.Server{
+			httpServer,
+			kafkaServer,
+			grpcServer,
+		},
 	)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()

@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"entgo.io/ent/dialect/sql"
+	"entgo.io/ent/dialect/sql/sqlgraph"
 	"github.com/google/uuid"
 	"mandacode.com/accounts/user/ent/predicate"
 )
@@ -378,6 +379,29 @@ func DeleteAfterIsNil() predicate.User {
 // DeleteAfterNotNil applies the NotNil predicate on the "delete_after" field.
 func DeleteAfterNotNil() predicate.User {
 	return predicate.User(sql.FieldNotNull(FieldDeleteAfter))
+}
+
+// HasSentEmails applies the HasEdge predicate on the "sent_emails" edge.
+func HasSentEmails() predicate.User {
+	return predicate.User(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, SentEmailsTable, SentEmailsColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasSentEmailsWith applies the HasEdge predicate on the "sent_emails" edge with a given conditions (other predicates).
+func HasSentEmailsWith(preds ...predicate.SentEmail) predicate.User {
+	return predicate.User(func(s *sql.Selector) {
+		step := newSentEmailsStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
 }
 
 // And groups predicates with the AND operator between them.

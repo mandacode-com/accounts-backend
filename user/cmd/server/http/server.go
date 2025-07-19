@@ -13,12 +13,13 @@ import (
 )
 
 type Server struct {
-	http         *http.Server
-	engine       *gin.Engine
-	logger       *zap.Logger
-	adminHandler *httphandlerv1.AdminHandler
-	userHandler  *httphandlerv1.UserHandler
-	port         int
+	http          *http.Server
+	engine        *gin.Engine
+	logger        *zap.Logger
+	adminHandler  *httphandlerv1.AdminHandler
+	userHandler   *httphandlerv1.UserHandler
+	signupHandler *httphandlerv1.SignupHandler
+	port          int
 }
 
 // Start implements server.Server.
@@ -31,6 +32,9 @@ func (s *Server) Start(ctx context.Context) error {
 
 	userGroup := s.engine.Group("/v1/user")
 	s.userHandler.RegisterRoutes(userGroup)
+
+	signupGroup := s.engine.Group("/v1/n")
+	s.signupHandler.RegisterRoutes(signupGroup)
 
 	s.logger.Info("starting HTTP server", zap.Int("port", s.port))
 	if err := s.http.ListenAndServe(); err != nil && err != http.ErrServerClosed {
@@ -51,14 +55,21 @@ func (s *Server) Stop(ctx context.Context) error {
 	return nil
 }
 
-func NewServer(port int, logger *zap.Logger, adminHandler *httphandlerv1.AdminHandler, userHandler *httphandlerv1.UserHandler) server.Server {
+func NewServer(
+	port int,
+	logger *zap.Logger,
+	adminHandler *httphandlerv1.AdminHandler,
+	userHandler *httphandlerv1.UserHandler,
+	signupHandler *httphandlerv1.SignupHandler,
+) server.Server {
 	engine := gin.Default()
 	return &Server{
-		http:         &http.Server{Addr: ":" + strconv.Itoa(port), Handler: engine},
-		engine:       engine,
-		logger:       logger,
-		port:         port,
-		adminHandler: adminHandler,
-		userHandler:  userHandler,
+		http:          &http.Server{Addr: ":" + strconv.Itoa(port), Handler: engine},
+		engine:        engine,
+		logger:        logger,
+		port:          port,
+		adminHandler:  adminHandler,
+		userHandler:   userHandler,
+		signupHandler: signupHandler,
 	}
 }

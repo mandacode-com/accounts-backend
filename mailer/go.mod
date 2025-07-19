@@ -6,7 +6,7 @@ require (
 	github.com/go-playground/validator/v10 v10.27.0
 	github.com/joho/godotenv v1.5.1
 	github.com/mandacode-com/accounts-proto v0.1.1
-	github.com/mandacode-com/golib v0.1.14
+	github.com/mandacode-com/golib v0.1.15
 	github.com/segmentio/kafka-go v0.4.48
 	go.uber.org/zap v1.27.0
 	google.golang.org/protobuf v1.36.6

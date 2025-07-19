@@ -64,6 +64,21 @@ func (a *AuthAccountRepository) CreateOAuthAuthAccount(ctx context.Context, acco
 	return dbmodels.NewSecureOAuthAuthAccount(authAccount), nil
 }
 
+// GetAuthAccountByID retrieves an authentication account by ID.
+func (a *AuthAccountRepository) GetAuthAccountByID(ctx context.Context, id uuid.UUID) (*dbmodels.SecureAuthAccount, error) {
+	authAccount, err := a.client.AuthAccount.Query().
+		Where(authaccount.ID(id)).
+		Only(ctx)
+	if err != nil {
+		if ent.IsNotFound(err) {
+			return nil, errors.New("AuthAccount not found", "AuthAccount Not Found", errcode.ErrNotFound)
+		}
+		return nil, errors.New(err.Error(), "Failed to find AuthAccount by ID", errcode.ErrInternalFailure)
+	}
+
+	return dbmodels.NewSecureAuthAccount(authAccount), nil
+}
+
 // GetAuthAccountsByUserID retrieves an authentication account by user ID.
 func (a *AuthAccountRepository) GetAuthAccountsByUserID(ctx context.Context, userID uuid.UUID) ([]*dbmodels.SecureAuthAccount, error) {
 	authAccounts, err := a.client.AuthAccount.Query().
@@ -88,7 +103,7 @@ func (a *AuthAccountRepository) GetAuthAccountsByUserID(ctx context.Context, use
 func (a *AuthAccountRepository) GetLocalAuthAccountByUserID(ctx context.Context, userID uuid.UUID) (*dbmodels.SecureLocalAuthAccount, error) {
 	authAccount, err := a.client.AuthAccount.Query().
 		Where(authaccount.And(
-			authaccount.UserID(userID),
+			authaccount.UserIDEQ(userID),
 			authaccount.ProviderEQ(authaccount.ProviderLocal),
 		)).
 		Only(ctx)
@@ -313,6 +328,46 @@ func (a *AuthAccountRepository) SetIsVerifiedByUserIDAndProvider(ctx context.Con
 	}
 
 	return dbmodels.NewSecureAuthAccount(authAccountUpdated), nil
+}
+
+// UpdateEmailByID updates the email of an authentication account by user ID.
+func (a *AuthAccountRepository) UpdateEmailByID(ctx context.Context, id uuid.UUID, newEmail string) (*dbmodels.SecureAuthAccount, error) {
+	authAccount, err := a.client.AuthAccount.UpdateOneID(id).
+		SetEmail(newEmail).
+		Save(ctx)
+	if err != nil {
+		if ent.IsNotFound(err) {
+			return nil, errors.New("AuthAccount not found", "AuthAccount Not Found", errcode.ErrNotFound)
+		}
+		return nil, errors.New(err.Error(), "Failed to update AuthAccount email", errcode.ErrInternalFailure)
+	}
+
+	return dbmodels.NewSecureAuthAccount(authAccount), nil
+}
+
+// UpdateLocalEmailVerificationStatus updates the email verification status of a local authentication account by user ID
+func (a *AuthAccountRepository) UpdateLocalEmailVerificationStatus(ctx context.Context, userID uuid.UUID, isVerified bool) error {
+	authAccount, err := a.client.AuthAccount.Query().
+		Where(authaccount.And(
+			authaccount.UserID(userID),
+			authaccount.ProviderEQ(authaccount.ProviderLocal),
+		)).
+		Only(ctx)
+	if err != nil {
+		if ent.IsNotFound(err) {
+			return errors.New("AuthAccount not found", "AuthAccount Not Found", errcode.ErrNotFound)
+		}
+		return errors.New(err.Error(), "Failed to find Local AuthAccount by UserID", errcode.ErrInternalFailure)
+	}
+
+	update := authAccount.Update().
+		SetIsVerified(isVerified)
+
+	if _, err := update.Save(ctx); err != nil {
+		return errors.New(err.Error(), "Failed to update Local AuthAccount email verification status", errcode.ErrInternalFailure)
+	}
+
+	return nil
 }
 
 // NewAuthAccountRepository creates a new instance of authAccountRepository.

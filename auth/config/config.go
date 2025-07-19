@@ -49,22 +49,28 @@ type SessionStoreConfig struct {
 type HTTPServerConfig struct {
 	Port int `validate:"required,min=1,max=65535"`
 }
+type GRPCServerConfig struct {
+	Port int `validate:"required,min=1,max=65535"`
+}
 
 type GRPCClientConfig struct {
 	Address string `validate:"required"`
+}
+type SignupAPIConfig struct {
+	Endpoint string        `validate:"required,url"`
+	Timeout  time.Duration `validate:"required,min=1"`
 }
 
 type Config struct {
 	Env             string              `validate:"required,oneof=dev prod"`
 	HTTPServer      HTTPServerConfig    `validate:"required"`
+	GRPCServer      GRPCServerConfig    `validate:"required"`
 	TokenClient     GRPCClientConfig    `validate:"required"`
 	DatabaseURL     string              `validate:"required"`
-	VerifyEmailURL  string              `validate:"required,url"`
 	LoginCodeStore  RedisStoreConfig    `validate:"required"`
-	EmailCodeStore  RedisStoreConfig    `validate:"required"` // Store for email verification codes
 	SessionStore    SessionStoreConfig  `validate:"required"`
-	MailWriter      KafkaWriterConfig   `validate:"required"`
 	UserEventReader KafkaReaderConfig   `validate:"required"`
+	SignupAPI       SignupAPIConfig     `validate:"required"`
 	GoogleOAuth     OAuthProviderConfig `validate:"required"`
 	NaverOAuth      OAuthProviderConfig `validate:"required"`
 	KakaoOAuth      OAuthProviderConfig `validate:"required"`
@@ -80,6 +86,7 @@ func LoadConfig(validator *validator.Validate) (*Config, error) {
 	if err != nil {
 		return nil, err
 	}
+	grpcPort, err := strconv.Atoi(getEnv("GRPC_PORT", "50051"))
 	sessionStoreDB, err := strconv.Atoi(getEnv("SESSION_STORE_DB", "0"))
 	if err != nil {
 		return nil, err
@@ -92,9 +99,9 @@ func LoadConfig(validator *validator.Validate) (*Config, error) {
 	if err != nil {
 		return nil, errors.New("Invalid LOGIN_CODE_TTL format", "Failed to parse login code TTL", errcode.ErrInvalidInput)
 	}
-	emailCodeTTL, err := time.ParseDuration(getEnv("EMAIL_CODE_TTL", "1h"))
+	signupTimeout, err := time.ParseDuration(getEnv("SIGNUP_API_TIMEOUT", "30s"))
 	if err != nil {
-		return nil, errors.New("Invalid EMAIL_CODE_TTL format", "Failed to parse email code TTL", errcode.ErrInvalidInput)
+		return nil, errors.New("Invalid SIGNUP_API_TIMEOUT format", "Failed to parse signup API timeout", errcode.ErrInvalidInput)
 	}
 
 	config := &Config{
@@ -102,11 +109,13 @@ func LoadConfig(validator *validator.Validate) (*Config, error) {
 		HTTPServer: HTTPServerConfig{
 			Port: httpPort,
 		},
+		GRPCServer: GRPCServerConfig{
+			Port: grpcPort,
+		},
 		TokenClient: GRPCClientConfig{
 			Address: getEnv("TOKEN_CLIENT_ADDR", ""),
 		},
 		DatabaseURL:    getEnv("DATABASE_URL", ""),
-		VerifyEmailURL: getEnv("VERIFY_EMAIL_URL", ""),
 		LoginCodeStore: RedisStoreConfig{
 			Address:  getEnv("LOGIN_CODE_STORE_ADDRESS", ""),
 			Password: getEnv("LOGIN_CODE_STORE_PASSWORD", ""),
@@ -115,14 +124,6 @@ func LoadConfig(validator *validator.Validate) (*Config, error) {
 			HashKey:  getEnv("LOGIN_CODE_STORE_HASH_KEY", "default_login_code_hash_key"),
 			Timeout:  loginCodeTTL,
 		},
-		EmailCodeStore: RedisStoreConfig{
-			Address:  getEnv("EMAIL_CODE_STORE_ADDRESS", ""),
-			Password: getEnv("EMAIL_CODE_STORE_PASSWORD", ""),
-			DB:       codeStoreDB,
-			Prefix:   getEnv("EMAIL_CODE_STORE_PREFIX", "email_code:"),
-			HashKey:  getEnv("EMAIL_CODE_STORE_HASH_KEY", "default_email_code_hash_key"),
-			Timeout:  emailCodeTTL,
-		},
 		SessionStore: SessionStoreConfig{
 			Address:     getEnv("SESSION_STORE_ADDRESS", ""),
 			Password:    getEnv("SESSION_STORE_PASSWORD", ""),
@@ -130,14 +131,14 @@ func LoadConfig(validator *validator.Validate) (*Config, error) {
 			SessionName: getEnv("SESSION_STORE_NAME", "session"),
 			HashKey:     getEnv("SESSION_STORE_HASH_KEY", "default_session_hash_key"),
 		},
-		MailWriter: KafkaWriterConfig{
-			Address: strings.Split(getEnv("MAIL_WRITER_ADDRESS", ""), ","),
-			Topic:   getEnv("MAIL_WRITER_TOPIC", "mail"),
-		},
 		UserEventReader: KafkaReaderConfig{
 			Brokers: strings.Split(getEnv("USER_EVENT_READER_BROKERS", ""), ","),
 			Topic:   getEnv("USER_EVENT_READER_TOPIC", "user_event"),
 			GroupID: getEnv("USER_EVENT_READER_GROUP_ID", "user_event_group"),
+		},
+		SignupAPI: SignupAPIConfig{
+			Endpoint: getEnv("SIGNUP_API_ENDPOINT", ""),
+			Timeout:  signupTimeout,
 		},
 		GoogleOAuth: OAuthProviderConfig{
 			ClientID:     getEnv("GOOGLE_CLIENT_ID", ""),

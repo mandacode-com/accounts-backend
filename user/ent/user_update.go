@@ -11,7 +11,9 @@ import (
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
+	"github.com/google/uuid"
 	"mandacode.com/accounts/user/ent/predicate"
+	"mandacode.com/accounts/user/ent/sentemail"
 	"mandacode.com/accounts/user/ent/user"
 )
 
@@ -136,9 +138,45 @@ func (uu *UserUpdate) ClearDeleteAfter() *UserUpdate {
 	return uu
 }
 
+// AddSentEmailIDs adds the "sent_emails" edge to the SentEmail entity by IDs.
+func (uu *UserUpdate) AddSentEmailIDs(ids ...uuid.UUID) *UserUpdate {
+	uu.mutation.AddSentEmailIDs(ids...)
+	return uu
+}
+
+// AddSentEmails adds the "sent_emails" edges to the SentEmail entity.
+func (uu *UserUpdate) AddSentEmails(s ...*SentEmail) *UserUpdate {
+	ids := make([]uuid.UUID, len(s))
+	for i := range s {
+		ids[i] = s[i].ID
+	}
+	return uu.AddSentEmailIDs(ids...)
+}
+
 // Mutation returns the UserMutation object of the builder.
 func (uu *UserUpdate) Mutation() *UserMutation {
 	return uu.mutation
+}
+
+// ClearSentEmails clears all "sent_emails" edges to the SentEmail entity.
+func (uu *UserUpdate) ClearSentEmails() *UserUpdate {
+	uu.mutation.ClearSentEmails()
+	return uu
+}
+
+// RemoveSentEmailIDs removes the "sent_emails" edge to SentEmail entities by IDs.
+func (uu *UserUpdate) RemoveSentEmailIDs(ids ...uuid.UUID) *UserUpdate {
+	uu.mutation.RemoveSentEmailIDs(ids...)
+	return uu
+}
+
+// RemoveSentEmails removes "sent_emails" edges to SentEmail entities.
+func (uu *UserUpdate) RemoveSentEmails(s ...*SentEmail) *UserUpdate {
+	ids := make([]uuid.UUID, len(s))
+	for i := range s {
+		ids[i] = s[i].ID
+	}
+	return uu.RemoveSentEmailIDs(ids...)
 }
 
 // Save executes the query and returns the number of nodes affected by the update operation.
@@ -215,6 +253,51 @@ func (uu *UserUpdate) sqlSave(ctx context.Context) (n int, err error) {
 	}
 	if uu.mutation.DeleteAfterCleared() {
 		_spec.ClearField(user.FieldDeleteAfter, field.TypeTime)
+	}
+	if uu.mutation.SentEmailsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.SentEmailsTable,
+			Columns: []string{user.SentEmailsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(sentemail.FieldID, field.TypeUUID),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := uu.mutation.RemovedSentEmailsIDs(); len(nodes) > 0 && !uu.mutation.SentEmailsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.SentEmailsTable,
+			Columns: []string{user.SentEmailsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(sentemail.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := uu.mutation.SentEmailsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.SentEmailsTable,
+			Columns: []string{user.SentEmailsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(sentemail.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
 	}
 	if n, err = sqlgraph.UpdateNodes(ctx, uu.driver, _spec); err != nil {
 		if _, ok := err.(*sqlgraph.NotFoundError); ok {
@@ -344,9 +427,45 @@ func (uuo *UserUpdateOne) ClearDeleteAfter() *UserUpdateOne {
 	return uuo
 }
 
+// AddSentEmailIDs adds the "sent_emails" edge to the SentEmail entity by IDs.
+func (uuo *UserUpdateOne) AddSentEmailIDs(ids ...uuid.UUID) *UserUpdateOne {
+	uuo.mutation.AddSentEmailIDs(ids...)
+	return uuo
+}
+
+// AddSentEmails adds the "sent_emails" edges to the SentEmail entity.
+func (uuo *UserUpdateOne) AddSentEmails(s ...*SentEmail) *UserUpdateOne {
+	ids := make([]uuid.UUID, len(s))
+	for i := range s {
+		ids[i] = s[i].ID
+	}
+	return uuo.AddSentEmailIDs(ids...)
+}
+
 // Mutation returns the UserMutation object of the builder.
 func (uuo *UserUpdateOne) Mutation() *UserMutation {
 	return uuo.mutation
+}
+
+// ClearSentEmails clears all "sent_emails" edges to the SentEmail entity.
+func (uuo *UserUpdateOne) ClearSentEmails() *UserUpdateOne {
+	uuo.mutation.ClearSentEmails()
+	return uuo
+}
+
+// RemoveSentEmailIDs removes the "sent_emails" edge to SentEmail entities by IDs.
+func (uuo *UserUpdateOne) RemoveSentEmailIDs(ids ...uuid.UUID) *UserUpdateOne {
+	uuo.mutation.RemoveSentEmailIDs(ids...)
+	return uuo
+}
+
+// RemoveSentEmails removes "sent_emails" edges to SentEmail entities.
+func (uuo *UserUpdateOne) RemoveSentEmails(s ...*SentEmail) *UserUpdateOne {
+	ids := make([]uuid.UUID, len(s))
+	for i := range s {
+		ids[i] = s[i].ID
+	}
+	return uuo.RemoveSentEmailIDs(ids...)
 }
 
 // Where appends a list predicates to the UserUpdate builder.
@@ -453,6 +572,51 @@ func (uuo *UserUpdateOne) sqlSave(ctx context.Context) (_node *User, err error) 
 	}
 	if uuo.mutation.DeleteAfterCleared() {
 		_spec.ClearField(user.FieldDeleteAfter, field.TypeTime)
+	}
+	if uuo.mutation.SentEmailsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.SentEmailsTable,
+			Columns: []string{user.SentEmailsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(sentemail.FieldID, field.TypeUUID),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := uuo.mutation.RemovedSentEmailsIDs(); len(nodes) > 0 && !uuo.mutation.SentEmailsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.SentEmailsTable,
+			Columns: []string{user.SentEmailsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(sentemail.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := uuo.mutation.SentEmailsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.SentEmailsTable,
+			Columns: []string{user.SentEmailsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(sentemail.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
 	}
 	_node = &User{config: uuo.config}
 	_spec.Assign = _node.assignValues

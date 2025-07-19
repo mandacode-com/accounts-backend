@@ -3,19 +3,19 @@ package httphandlerv1
 import (
 	"github.com/gin-gonic/gin"
 	"mandacode.com/accounts/user/internal/usecase/admin"
-	"mandacode.com/accounts/user/internal/usecase/user"
+	manage "mandacode.com/accounts/user/internal/usecase/management"
 )
 
 type AdminHandler struct {
-	adminUsecase *admin.AdminUsecase
-	userUsecase  *user.UserUsecase
+	adminUsecase  *admin.AdminUsecase
+	manageUsecase *manage.AdminManageUsecase
 }
 
 // NewAdminHandler creates a new AdminHandler with the provided use cases.
-func NewAdminHandler(adminUsecase *admin.AdminUsecase, userUsecase *user.UserUsecase) *AdminHandler {
+func NewAdminHandler(adminUsecase *admin.AdminUsecase, manageUsecase *manage.AdminManageUsecase) *AdminHandler {
 	return &AdminHandler{
-		adminUsecase: adminUsecase,
-		userUsecase:  userUsecase,
+		adminUsecase:  adminUsecase,
+		manageUsecase: manageUsecase,
 	}
 }
 

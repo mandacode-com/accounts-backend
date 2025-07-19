@@ -11,6 +11,7 @@ import (
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
 	"github.com/google/uuid"
+	"mandacode.com/accounts/user/ent/sentemail"
 	"mandacode.com/accounts/user/ent/user"
 )
 
@@ -145,6 +146,21 @@ func (uc *UserCreate) SetNillableID(u *uuid.UUID) *UserCreate {
 		uc.SetID(*u)
 	}
 	return uc
+}
+
+// AddSentEmailIDs adds the "sent_emails" edge to the SentEmail entity by IDs.
+func (uc *UserCreate) AddSentEmailIDs(ids ...uuid.UUID) *UserCreate {
+	uc.mutation.AddSentEmailIDs(ids...)
+	return uc
+}
+
+// AddSentEmails adds the "sent_emails" edges to the SentEmail entity.
+func (uc *UserCreate) AddSentEmails(s ...*SentEmail) *UserCreate {
+	ids := make([]uuid.UUID, len(s))
+	for i := range s {
+		ids[i] = s[i].ID
+	}
+	return uc.AddSentEmailIDs(ids...)
 }
 
 // Mutation returns the UserMutation object of the builder.
@@ -291,6 +307,22 @@ func (uc *UserCreate) createSpec() (*User, *sqlgraph.CreateSpec) {
 	if value, ok := uc.mutation.DeleteAfter(); ok {
 		_spec.SetField(user.FieldDeleteAfter, field.TypeTime, value)
 		_node.DeleteAfter = &value
+	}
+	if nodes := uc.mutation.SentEmailsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.SentEmailsTable,
+			Columns: []string{user.SentEmailsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(sentemail.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges = append(_spec.Edges, edge)
 	}
 	return _node, _spec
 }
