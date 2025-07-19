@@ -63,8 +63,8 @@ func main() {
 		AllowAutoTopicCreation: true,
 	}
 	mailEventWriter := &kafka.Writer{
-		Addr:                   kafka.TCP(cfg.MailEventWriter.Address...),
-		Topic:                  cfg.MailEventWriter.Topic,
+		Addr:                   kafka.TCP(cfg.EmailEventWriter.Address...),
+		Topic:                  cfg.EmailEventWriter.Topic,
 		Balancer:               &kafka.Hash{},
 		AllowAutoTopicCreation: true,
 	}

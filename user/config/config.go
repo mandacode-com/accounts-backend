@@ -39,7 +39,7 @@ type Config struct {
 	DatabaseURL           string            `validate:"required"`
 	HTTPServer            HTTPServerConfig  `validate:"required"`
 	UserEventWriter       KafkaWriterConfig `validate:"required"`
-	MailEventWriter       KafkaWriterConfig `validate:"required"`
+	EmailEventWriter       KafkaWriterConfig `validate:"required"`
 	EmailCodeStore        RedisStoreConfig  `validate:"required"`
 	AuthClient            GRPCClientConfig  `validate:"required"`
 	ProfileClient         GRPCClientConfig  `validate:"required"`
@@ -85,9 +85,9 @@ func LoadConfig(validator *validator.Validate) (*Config, error) {
 			Address: strings.Split(getEnv("USER_EVENT_WRITER_ADDRESS", ""), ","),
 			Topic:   getEnv("USER_EVENT_WRITER_TOPIC", ""),
 		},
-		MailEventWriter: KafkaWriterConfig{
-			Address: strings.Split(getEnv("MAIL_EVENT_WRITER_ADDRESS", ""), ","),
-			Topic:   getEnv("MAIL_EVENT_WRITER_TOPIC", ""),
+		EmailEventWriter: KafkaWriterConfig{
+			Address: strings.Split(getEnv("EMAIL_EVENT_WRITER_ADDRESS", ""), ","),
+			Topic:   getEnv("EMAIL_EVENT_WRITER_TOPIC", ""),
 		},
 		HTTPServer: HTTPServerConfig{
 			Port: httpPort,

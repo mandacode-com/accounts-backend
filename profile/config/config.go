@@ -69,7 +69,7 @@ func LoadConfig(validator *validator.Validate) (*Config, error) {
 		Env: getEnv("ENV", "dev"),
 		HTTPServer: HTTPServerConfig{
 			Port:      httpPort,
-			UIDHeader: getEnv("HTTP_UID_HEADER", "X-User-ID"),
+			UIDHeader: getEnv("UID_HEADER_KEY", "X-User-ID"),
 		},
 		GRPCServer: GRPCServerConfig{
 			Port: grpcPort,

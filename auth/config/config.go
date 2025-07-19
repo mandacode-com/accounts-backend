@@ -67,10 +67,8 @@ type Config struct {
 	GRPCServer      GRPCServerConfig    `validate:"required"`
 	TokenClient     GRPCClientConfig    `validate:"required"`
 	DatabaseURL     string              `validate:"required"`
-	VerifyEmailURL  string              `validate:"required,url"`
 	LoginCodeStore  RedisStoreConfig    `validate:"required"`
 	SessionStore    SessionStoreConfig  `validate:"required"`
-	MailWriter      KafkaWriterConfig   `validate:"required"`
 	UserEventReader KafkaReaderConfig   `validate:"required"`
 	SignupAPI       SignupAPIConfig     `validate:"required"`
 	GoogleOAuth     OAuthProviderConfig `validate:"required"`
@@ -118,7 +116,6 @@ func LoadConfig(validator *validator.Validate) (*Config, error) {
 			Address: getEnv("TOKEN_CLIENT_ADDR", ""),
 		},
 		DatabaseURL:    getEnv("DATABASE_URL", ""),
-		VerifyEmailURL: getEnv("VERIFY_EMAIL_URL", ""),
 		LoginCodeStore: RedisStoreConfig{
 			Address:  getEnv("LOGIN_CODE_STORE_ADDRESS", ""),
 			Password: getEnv("LOGIN_CODE_STORE_PASSWORD", ""),
@@ -133,10 +130,6 @@ func LoadConfig(validator *validator.Validate) (*Config, error) {
 			DB:          sessionStoreDB,
 			SessionName: getEnv("SESSION_STORE_NAME", "session"),
 			HashKey:     getEnv("SESSION_STORE_HASH_KEY", "default_session_hash_key"),
-		},
-		MailWriter: KafkaWriterConfig{
-			Address: strings.Split(getEnv("MAIL_WRITER_ADDRESS", ""), ","),
-			Topic:   getEnv("MAIL_WRITER_TOPIC", "mail"),
 		},
 		UserEventReader: KafkaReaderConfig{
 			Brokers: strings.Split(getEnv("USER_EVENT_READER_BROKERS", ""), ","),
