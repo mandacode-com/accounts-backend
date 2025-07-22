@@ -48,7 +48,7 @@ func (s *SignupAPI) OAuthSignup(
 ) (*signupinfradto.OAuthSignupResponse, error) {
 	endpoint := s.endpoint
 	endpoint.Path = path.Join(endpoint.Path, provider.String())
-	req, err := http.NewRequest("POST", endpoint.String(), nil)
+	req, err := http.NewRequest("GET", endpoint.String(), nil)
 	if err != nil {
 		return nil, err
 	}
