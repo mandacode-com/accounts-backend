@@ -33,7 +33,7 @@ func (s *Server) Start(ctx context.Context) error {
 	userGroup := s.engine.Group("/v1/user")
 	s.userHandler.RegisterRoutes(userGroup)
 
-	signupGroup := s.engine.Group("/v1/n")
+	signupGroup := s.engine.Group("/v1/signup")
 	s.signupHandler.RegisterRoutes(signupGroup)
 
 	s.logger.Info("starting HTTP server", zap.Int("port", s.port))

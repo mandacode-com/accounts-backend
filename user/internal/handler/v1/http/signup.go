@@ -53,10 +53,10 @@ func NewSignupHandler(
 
 // RegisterRoutes registers the user routes with the provided router.
 func (h *SignupHandler) RegisterRoutes(router *gin.RouterGroup) {
-	router.POST("/signup", h.LocalSignup)
+	router.POST("/", h.LocalSignup)
 	router.GET("/verify-email", h.VerifyEmail)
 	router.POST("/verify-email/resend/:user_id", h.ResendVerificationEmail)
-	router.GET("/o/signup/:provider", h.OAuthSignup)
+	router.GET("/o/:provider", h.OAuthSignup)
 }
 
 // LocalSignup handles the local signup process.
