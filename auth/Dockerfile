@@ -25,13 +25,13 @@ COPY . .
 RUN go build -o server ./cmd/server
 
 ############################
-# 1.5. CA Certificates Stage
+# 2. CA Certificates Stage
 ############################
 FROM alpine AS certs
 RUN apk add --no-cache ca-certificates
 
 ############################
-# 2. Runtime Stage (scratch)
+# 3. Runtime Stage (scratch)
 ############################
 FROM scratch AS prod
 
