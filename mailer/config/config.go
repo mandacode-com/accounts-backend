@@ -11,11 +11,12 @@ import (
 )
 
 type MailConfig struct {
-	Host     string `validate:"required"`
-	Port     int    `validate:"required,min=1"`
-	Username string `validate:"required"`
-	Password string `validate:"required"`
-	Sender   string `validate:"required"`
+	Host       string `validate:"required"`
+	Port       int    `validate:"required,min=1"`
+	Username   string `validate:"required"`
+	Password   string `validate:"required"`
+	SenderEmail     string `validate:"required,email"`
+	SenderName string `validate:"required"`
 }
 
 type KafkaConfig struct {
@@ -46,7 +47,8 @@ func LoadConfig(v *validator.Validate) (*Config, error) {
 		Port:     mailPort,
 		Username: getEnv("SMTP_USER", ""),
 		Password: getEnv("SMTP_PASS", ""),
-		Sender:   getEnv("SMTP_SENDER", ""),
+		SenderEmail: getEnv("SMTP_SENDER_EMAIL", ""),
+		SenderName: getEnv("SMTP_SENDER_NAME", ""),
 	}
 
 	kafkaConfig := KafkaConfig{
