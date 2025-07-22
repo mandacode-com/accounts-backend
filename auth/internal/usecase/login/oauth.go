@@ -87,7 +87,7 @@ func (l *OAuthLoginUsecase) getOrCreateVerifiedUser(ctx context.Context, input l
 	oauth, err := l.authAccount.GetOAuthAccountByProviderAndProviderID(ctx, input.Provider, userInfo.ProviderID)
 	if err != nil {
 		if errors.Is(err, errcode.ErrNotFound) { // If the OAuth account does not exist, create a new one
-			_, err := l.signupApi.OAuthSignup(oauthAccessToken) // Request signup API to create a new user
+			_, err := l.signupApi.OAuthSignup(input.Provider, oauthAccessToken) // Request signup API to create a new user
 			if err != nil {
 				return uuid.Nil, err
 			}
