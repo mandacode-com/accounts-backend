@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"crypto/tls"
 	"log"
 	"os"
 	"os/signal"
@@ -39,6 +40,10 @@ func main() {
 		cfg.SMTP.Username,
 		cfg.SMTP.Password,
 	)
+	mailDialer.TLSConfig = &tls.Config{
+		InsecureSkipVerify: cfg.Env != "prod", // Skip TLS verification in non-production environments
+		ServerName:         cfg.SMTP.Host,     // Set ServerName for TLS verification
+	}
 
 	// Initialize MailApp
 	mailUsecase, err := mail.NewMailUsecase(cfg.SMTP.Host, cfg.SMTP.Port, cfg.SMTP.SenderName, cfg.SMTP.SenderEmail, mailDialer, logger)
