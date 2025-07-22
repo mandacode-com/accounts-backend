@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/url"
+	"path"
 
 	"github.com/go-playground/validator/v10"
 	"github.com/mandacode-com/golib/errors"
@@ -45,8 +46,9 @@ func (s *SignupAPI) OAuthSignup(
 	provider authaccount.Provider,
 	accessToken string,
 ) (*signupinfradto.OAuthSignupResponse, error) {
-	rel, err := url.Parse(provider.String())
-	req, err := http.NewRequest("POST", s.endpoint.ResolveReference(rel).String(), nil)
+	endpoint := s.endpoint
+	endpoint.Path = path.Join(endpoint.Path, provider.String())
+	req, err := http.NewRequest("POST", endpoint.String(), nil)
 	if err != nil {
 		return nil, err
 	}
