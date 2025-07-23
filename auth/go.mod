@@ -10,7 +10,7 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/joho/godotenv v1.5.1
 	github.com/lib/pq v1.10.9
-	github.com/mandacode-com/accounts-proto v0.1.15
+	github.com/mandacode-com/accounts-proto v0.1.16
 	github.com/mandacode-com/golib v0.1.15
 	github.com/redis/go-redis/v9 v9.11.0
 	github.com/segmentio/kafka-go v0.4.48
