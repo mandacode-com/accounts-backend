@@ -66,10 +66,12 @@ func (r *CreateOAuthUserRequest) ToProto() *authv1.CreateOAuthUserRequest {
 }
 
 type CreateOAuthUserResponse struct {
-	UserID    uuid.UUID `json:"user_id"`
-	Provider  string    `json:"provider"`
-	Email     string    `json:"email"`
-	CreatedAt time.Time `json:"created_at"`
+	UserID     uuid.UUID `json:"user_id"`
+	Provider   string    `json:"provider"`
+	ProviderID string    `json:"provider_id"`
+	Email      string    `json:"email"`
+	IsVerified bool      `json:"is_verified"` // Email verification status
+	CreatedAt  time.Time `json:"created_at"`
 }
 
 func NewCreateOAuthUserResponse(data *authv1.CreateOAuthUserResponse) (*CreateOAuthUserResponse, error) {
@@ -81,9 +83,11 @@ func NewCreateOAuthUserResponse(data *authv1.CreateOAuthUserResponse) (*CreateOA
 		return nil, errors.Upgrade(err, "Failed to parse user ID", errcode.ErrInvalidFormat)
 	}
 	return &CreateOAuthUserResponse{
-		UserID:    userUID,
-		Provider:  data.Provider.String(),
-		Email:     data.Email,
-		CreatedAt: data.CreatedAt.AsTime(),
+		UserID:     userUID,
+		Provider:   data.Provider.String(),
+		ProviderID: data.ProviderId,
+		Email:      data.Email,
+		IsVerified: data.Verified,
+		CreatedAt:  data.CreatedAt.AsTime(),
 	}, nil
 }

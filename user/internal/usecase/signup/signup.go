@@ -118,9 +118,11 @@ func (s *SingupUsecase) OAuthSignup(ctx context.Context, req *signupdto.OAuthSig
 	}
 
 	return &signupdto.OAuthSignupResponse{
-		UserID:    userID,
-		Provider:  req.Provider,
-		Email:     authUser.Email,
-		CreatedAt: dbUser.CreatedAt,
+		UserID:     userID,
+		Provider:   req.Provider,
+		Email:      authUser.Email,
+		ProviderID: authUser.ProviderID,
+		IsVerified: authUser.IsVerified,
+		CreatedAt:  dbUser.CreatedAt,
 	}, nil
 }

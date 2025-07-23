@@ -152,12 +152,7 @@ func (h *SignupHandler) OAuthSignup(ctx *gin.Context) {
 		return
 	}
 
-	ctx.JSON(http.StatusOK, gin.H{
-		"user_id":    signupRes.UserID,
-		"provider":   signupRes.Provider,
-		"email":      signupRes.Email,
-		"created_at": signupRes.CreatedAt,
-	})
+	ctx.JSON(http.StatusOK, signupRes)
 }
 
 // ResendVerificationEmail handles the request to resend the email verification.
