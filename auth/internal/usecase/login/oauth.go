@@ -11,8 +11,6 @@ import (
 
 	"mandacode.com/accounts/auth/internal/infra/oauthapi"
 	signupinfra "mandacode.com/accounts/auth/internal/infra/signup"
-	dbmodels "mandacode.com/accounts/auth/internal/models/database"
-	oauthmodels "mandacode.com/accounts/auth/internal/models/oauth"
 	coderepo "mandacode.com/accounts/auth/internal/repository/code"
 	dbrepo "mandacode.com/accounts/auth/internal/repository/database"
 	tokenrepo "mandacode.com/accounts/auth/internal/repository/token"
@@ -25,25 +23,6 @@ type OAuthLoginUsecase struct {
 	loginCodeManager *coderepo.CodeManager
 	signupApi        *signupinfra.SignupAPI
 	oauthApiMap      map[authaccount.Provider]oauthapi.OAuthAPI
-}
-
-// createOAuth creates a new OAuth account in the database.
-func (l *OAuthLoginUsecase) createOAuth(ctx context.Context, provider authaccount.Provider, userInfo *oauthmodels.UserInfo) (*dbmodels.SecureOAuthAuthAccount, error) {
-	userID := uuid.New()
-	account, err := l.authAccount.CreateOAuthAuthAccount(
-		ctx,
-		&dbmodels.CreateOAuthAuthAccountInput{
-			UserID:     userID,
-			Provider:   provider,
-			ProviderID: userInfo.ProviderID,
-			Email:      userInfo.Email,
-			IsVerified: userInfo.EmailVerified,
-		},
-	)
-	if err != nil {
-		return nil, errors.Upgrade(err, "Failed to create OAuth account", errcode.ErrInternalFailure)
-	}
-	return account, nil
 }
 
 // getAccessToken retrieves the access token from the OAuth API.
@@ -87,17 +66,16 @@ func (l *OAuthLoginUsecase) getOrCreateVerifiedUser(ctx context.Context, input l
 	oauth, err := l.authAccount.GetOAuthAccountByProviderAndProviderID(ctx, input.Provider, userInfo.ProviderID)
 	if err != nil {
 		if errors.Is(err, errcode.ErrNotFound) { // If the OAuth account does not exist, create a new one
-			_, err := l.signupApi.OAuthSignup(oauthAccessToken) // Request signup API to create a new user
+			signupResponse, err := l.signupApi.OAuthSignup(input.Provider, oauthAccessToken) // Request signup API to create a new user
 			if err != nil {
 				return uuid.Nil, err
 			}
-			// Retry fetching the OAuth account after signup
-			retryOauth, err := l.authAccount.GetOAuthAccountByProviderAndProviderID(ctx, input.Provider, userInfo.ProviderID)
+			userUID, err := uuid.Parse(signupResponse.UserID)
 			if err != nil {
-				return uuid.Nil, errors.Upgrade(err, "Failed to get OAuth account after signup", errcode.ErrInternalFailure)
+				return uuid.Nil, errors.Upgrade(err, "Failed to parse user ID from signup response", errcode.ErrInternalFailure)
 			}
-			userID = retryOauth.UserID
-			verified = retryOauth.IsVerified
+			userID = userUID
+			verified = signupResponse.IsVerified
 		}
 		return uuid.Nil, errors.Upgrade(err, "Failed to get OAuth account", errcode.ErrInternalFailure)
 	} else {

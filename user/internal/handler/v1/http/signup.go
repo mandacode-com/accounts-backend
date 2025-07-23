@@ -53,10 +53,10 @@ func NewSignupHandler(
 
 // RegisterRoutes registers the user routes with the provided router.
 func (h *SignupHandler) RegisterRoutes(router *gin.RouterGroup) {
-	router.POST("/signup", h.LocalSignup)
+	router.POST("/", h.LocalSignup)
 	router.GET("/verify-email", h.VerifyEmail)
 	router.POST("/verify-email/resend/:user_id", h.ResendVerificationEmail)
-	router.GET("/o/signup/:provider", h.OAuthSignup)
+	router.GET("/o/:provider", h.OAuthSignup)
 }
 
 // LocalSignup handles the local signup process.
@@ -152,12 +152,7 @@ func (h *SignupHandler) OAuthSignup(ctx *gin.Context) {
 		return
 	}
 
-	ctx.JSON(http.StatusOK, gin.H{
-		"user_id":    signupRes.UserID,
-		"provider":   signupRes.Provider,
-		"email":      signupRes.Email,
-		"created_at": signupRes.CreatedAt,
-	})
+	ctx.JSON(http.StatusOK, signupRes)
 }
 
 // ResendVerificationEmail handles the request to resend the email verification.

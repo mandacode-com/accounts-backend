@@ -14,15 +14,11 @@ type MailUsecase struct {
 	dialer              *gomail.Dialer
 	verifyEmailTemplate *template.Template
 	logger              *zap.Logger
-	username            string
-	sender              string
+	senderName          string
+	senderEmail         string
 }
 
 // SendEmailVerificationMail sends an email verification mail to the user.
-//
-// Parameters:
-//   - email: The email address of the user to send the verification mail to.
-//   - verificationLink: The link to be included in the email for verification.
 func (m *MailUsecase) SendEmailVerificationMail(email string, link string) error {
 	data := struct {
 		Link string
@@ -37,7 +33,7 @@ func (m *MailUsecase) SendEmailVerificationMail(email string, link string) error
 	}
 
 	msg := gomail.NewMessage()
-	msg.SetHeader("From", msg.FormatAddress(m.username, m.sender))
+	msg.SetAddressHeader("From", m.senderEmail, m.senderName)
 	msg.SetHeader("To", email)
 	msg.SetHeader("Subject", "[Mandacode] Email Verification")
 	msg.SetBody("text/html", body.String())
@@ -51,9 +47,8 @@ func (m *MailUsecase) SendEmailVerificationMail(email string, link string) error
 	return nil
 }
 
-// NewMailApp creates a new instance of MailApp with the provided SMTP configuration.
-func NewMailApp(host string, port int, username, password, sender string, logger *zap.Logger) (*MailUsecase, error) {
-	dialer := gomail.NewDialer(host, port, username, password)
+// NewMailUsecase creates a new instance of MailApp with the provided SMTP configuration.
+func NewMailUsecase(host string, port int, senderName string, senderEmail string, dialer *gomail.Dialer, logger *zap.Logger) (*MailUsecase, error) {
 	cwd, err := os.Getwd()
 	tmplPath := filepath.Join(cwd, "template", "verify_email.html")
 	tmpl, err := template.ParseFiles(tmplPath)
@@ -66,7 +61,7 @@ func NewMailApp(host string, port int, username, password, sender string, logger
 		dialer:              dialer,
 		verifyEmailTemplate: tmpl,
 		logger:              logger,
-		username:            username,
-		sender:              sender,
+		senderName:          senderName,
+		senderEmail:         senderEmail,
 	}, nil
 }

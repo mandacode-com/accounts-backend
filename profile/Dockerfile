@@ -25,12 +25,21 @@ COPY . .
 RUN go build -o server ./cmd/server
 
 ############################
-# 2. Runtime Stage (scratch)
+# 2. CA Certificates Stage
+############################
+FROM alpine AS certs
+RUN apk add --no-cache ca-certificates
+
+############################
+# 3. Runtime Stage (scratch)
 ############################
 FROM scratch AS prod
 
 # Copy built binary only
 COPY --from=builder /app/server /app/server
+
+# Copy CA certs for TLS verification
+COPY --from=certs /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 
 # Create non-root user
 USER 1001

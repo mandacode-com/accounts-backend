@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"crypto/tls"
 	"log"
 	"os"
 	"os/signal"
@@ -12,6 +13,7 @@ import (
 	"github.com/mandacode-com/golib/server"
 	"github.com/segmentio/kafka-go"
 	"go.uber.org/zap"
+	"gopkg.in/gomail.v2"
 	kafkaserver "mandacode.com/accounts/mailer/cmd/server/kafka"
 	"mandacode.com/accounts/mailer/config"
 	mailhandler "mandacode.com/accounts/mailer/internal/handler/mail"
@@ -32,8 +34,19 @@ func main() {
 		logger.Fatal("failed to load configuration", zap.Error(err))
 	}
 
+	mailDialer := gomail.NewDialer(
+		cfg.SMTP.Host,
+		cfg.SMTP.Port,
+		cfg.SMTP.Username,
+		cfg.SMTP.Password,
+	)
+	mailDialer.TLSConfig = &tls.Config{
+		InsecureSkipVerify: cfg.Env != "prod", // Skip TLS verification in non-production environments
+		ServerName:         cfg.SMTP.Host,     // Set ServerName for TLS verification
+	}
+
 	// Initialize MailApp
-	mailUsecase, err := mail.NewMailApp(cfg.SMTP.Host, cfg.SMTP.Port, cfg.SMTP.Username, cfg.SMTP.Password, cfg.SMTP.Sender, logger)
+	mailUsecase, err := mail.NewMailUsecase(cfg.SMTP.Host, cfg.SMTP.Port, cfg.SMTP.SenderName, cfg.SMTP.SenderEmail, mailDialer, logger)
 	if err != nil {
 		logger.Fatal("failed to create MailApp", zap.Error(err))
 	}

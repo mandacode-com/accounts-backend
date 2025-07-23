@@ -15,8 +15,6 @@ import (
 	"mandacode.com/accounts/auth/internal/usecase/login"
 	logindto "mandacode.com/accounts/auth/internal/usecase/login/dto"
 
-	// "mandacode.com/accounts/auth/internal/usecase/oauthauth"
-	// oauthdto "mandacode.com/accounts/auth/internal/usecase/oauthauth/dto"
 	"mandacode.com/accounts/auth/internal/util"
 )
 

@@ -24,10 +24,12 @@ type OAuthSignupRequest struct {
 }
 
 type OAuthSignupResponse struct {
-	UserID    uuid.UUID             `json:"user_id"`
-	Provider  provider.ProviderType `json:"provider"`
-	Email     string                `json:"email"`
-	CreatedAt time.Time             `json:"created_at"`
+	UserID     uuid.UUID             `json:"user_id"`
+	Provider   provider.ProviderType `json:"provider"`
+	ProviderID string                `json:"provider_id"`
+	Email      string                `json:"email"`
+	IsVerified bool                  `json:"is_verified"` // Email verification status
+	CreatedAt  time.Time             `json:"created_at"`
 }
 
 type SendVerificationEmailRequest struct {
